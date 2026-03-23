@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Registro de Descarte SPG - 2026</title>
+    
+    <link rel="icon" type="image/png" href="https://i.imgur.com/wEozr34.png">
+    <link rel="apple-touch-icon" href="https://i.imgur.com/wEozr34.png">
+    <link rel="manifest" href='data:application/manifest+json,{"name":"Descarte SPG","short_name":"Descarte","start_url":".","display":"standalone","background_color":"#ffffff","theme_color":"#759587","icons":[{"src":"https://i.imgur.com/wEozr34.png","sizes":"192x192","type":"image/png"},{"src":"https://i.imgur.com/wEozr34.png","sizes":"512x512","type":"image/png"}]}'>
+    
+    <meta name="theme-color" content="#759587">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Descarte SPG">
+    
+    <!-- Bibliotecas Externas -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f2f6f4',
+                            100: '#dfe8e4',
+                            200: '#bfd1c9',
+                            300: '#9db8ad',
+                            400: '#82a294',
+                            500: '#759587',
+                            600: '#5e7b6d',
+                            700: '#4b6357',
+                            800: '#3d4f46',
+                            900: '#33413b',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; -webkit-tap-highlight-color: transparent; }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        input, select, textarea { line-height: 1.5; }
+        .animate-fade-in-down { animation: fadeInDown 0.3s ease-out forwards; }
+        @keyframes fadeInDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen pb-20 select-none">
+
+    <!-- Navbar -->
+    <div class="bg-white border-b border-slate-200 px-4 py-3 flex justify-between items-center shadow-sm sticky top-0 z-40">
+        <div class="flex items-center gap-3">
+            <img src="https://i.imgur.com/wEozr34.png" alt="Logo SPG" class="w-8 h-8 rounded-lg shadow-sm border border-slate-100">
+            <div>
+                <h1 class="text-sm font-bold text-slate-800 leading-tight">SPG SEDE</h1>
+                <p class="text-[10px] text-brand-600 font-bold uppercase tracking-wide">Registro de Descarte</p>
+            </div>
+        </div>
+        <div class="flex gap-2">
+            <button type="button" onclick="confirmBeforeSend()" class="flex items-center gap-2 px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white rounded-lg text-xs font-bold shadow-lg shadow-brand-500/20 transition-all active:scale-95 active:bg-brand-700">
+                <i data-lucide="share-2" class="w-4 h-4"></i>
+                <span class="hidden sm:inline">Enviar para o WhatsApp</span>
+                <span class="sm:hidden">Enviar</span>
+            </button>
+        </div>
+    </div>
+
+    <div class="container mx-auto p-4 flex flex-col lg:flex-row gap-8 mt-4">
+        
+        <!-- COLUNA DA ESQUERDA: CONTROLES -->
+        <div class="w-full lg:w-1/3 space-y-4">
+
+            <!-- 1. DATA DO RECEBIMENTO -->
+            <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex flex-col gap-2">
+                <label class="text-xs font-bold text-slate-500 uppercase flex items-center gap-2">
+                    <i data-lucide="calendar" class="w-4 h-4 text-brand-500"></i> Data do recebimento da colheita
+                </label>
+                <input type="date" id="reportDate" onchange="updateDynamicTitle()" class="w-full p-2 border border-slate-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-500 outline-none text-slate-700 font-bold uppercase">
+            </div>
+            
+            <!-- 2. ADICIONAR DESCARTE -->
+            <div id="formContainer" class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 transition-colors duration-300">
+                <div class="flex justify-between items-center mb-4 border-b border-slate-100 pb-3">
+                    <h2 id="formTitle" class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                        <i data-lucide="trash-2" class="text-brand-500"></i> Registrar Descarte
+                    </h2>
+                    <button type="button" onclick="clearBlockForm()" class="text-xs font-semibold text-slate-400 hover:text-brand-500 transition-colors flex items-center gap-1">
+                        <i data-lucide="eraser" class="w-3 h-3"></i> Limpar
+                    </button>
+                </div>
+                
+                <form id="discardForm" onsubmit="addItem(event)" class="space-y-4">
+                    
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                            <label class="text-xs font-bold text-slate-500 uppercase mb-1 block">Cultura</label>
+                            <select id="culture" onchange="updateDynamicFields()" required class="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none text-sm bg-white">
+                                <option value="">Selecione a cultura...</option>
+                                <option value="Brócolis">Brócolis</option>
+                                <option value="Couve-Flor">Couve-Flor</option>
+                                <option value="Tomate Cereja">Tomate Cereja</option>
+                                <option value="Pepino">Pepino</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-xs font-bold text-slate-500 uppercase mb-1 block">Nome do Parceiro</label>
+                            <select id="partnerName" required class="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none text-sm bg-white disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed">
+                                <option value="">Selecione a cultura primeiro...</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="text-xs font-bold text-slate-500 uppercase mb-1 block">Quantidade (kg)</label>
+                        <input type="text" id="discardQuantity" oninput="formatDecimalInput(this)" required placeholder="Ex: 15,500" class="w-full p-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 outline-none">
+                    </div>
+
+                    <div>
+                        <label class="text-xs font-bold text-slate-500 uppercase mb-1 block">Motivo do Descarte</label>
+                        <select id="discardReason" onchange="toggleCustomReason()" required class="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none text-sm bg-white disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed">
+                            <option value="">Selecione a cultura primeiro...</option>
+                        </select>
+                        
+                        <div id="customReasonContainer" class="hidden mt-2 animate-fade-in-down">
+                            <input type="text" id="customReason" placeholder="Especifique o motivo..." class="w-full p-2 border border-brand-300 bg-brand-50 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 outline-none text-slate-700">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="text-xs font-bold text-slate-500 uppercase mb-1 flex items-center gap-1 justify-between">
+                            <span class="flex items-center gap-1"><i data-lucide="camera" class="w-3 h-3"></i> Fotos em Anexo (Máx. 5)</span>
+                            <span id="photoCounter" class="text-[10px] text-brand-600 font-bold bg-brand-50 px-2 py-0.5 rounded-full">0/5</span>
+                        </label>
+                        <input type="file" id="discardPhoto" accept="image/*" multiple capture="environment" onchange="handleImageUpload(event)" class="w-full p-2 border border-slate-300 rounded-lg text-sm bg-slate-50 file:mr-4 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-brand-50 file:text-brand-700 hover:file:bg-brand-100 transition-colors">
+                        
+                        <div id="photoPreviewContainer" class="hidden mt-3 grid grid-cols-3 sm:grid-cols-5 gap-2 animate-fade-in-down">
+                        </div>
+                    </div>
+
+                    <button type="submit" id="submitBtn" class="w-full bg-slate-800 hover:bg-slate-900 text-white font-bold py-3 rounded-xl transition-all flex justify-center items-center gap-2 mt-4 active:scale-95">
+                        <i data-lucide="plus-circle" class="w-4 h-4"></i> <span>Adicionar ao Relatório</span>
+                    </button>
+                </form>
+            </div>
+
+            <!-- Lista de Itens -->
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-sm font-bold text-slate-700">Registros Adicionados</h3>
+                    <button id="clearAllBtn" onclick="clearAll()" class="text-xs text-brand-500 hover:text-brand-700 font-bold underline transition-all">Limpar Tudo</button>
+                </div>
+                <ul id="itemsList" class="space-y-2 text-sm text-slate-600">
+                </ul>
+            </div>
+        </div>
+
+        <!-- PREVIEW -->
+        <div class="w-full lg:w-2/3 flex flex-col bg-slate-200/50 p-4 rounded-3xl border border-slate-300/50 min-h-[calc(100vh-6rem)]">
+            <div id="report-card" class="w-full flex-1 flex flex-col bg-white rounded-none shadow-2xl overflow-hidden border border-slate-100 relative">
+                
+                <div class="bg-gradient-to-br from-brand-500 to-brand-700 p-6 text-white relative overflow-hidden flex flex-col justify-start shrink-0 gap-3">
+                    <img src="https://i.imgur.com/wEozr34.png" alt="Logo SPG" class="absolute top-4 right-4 w-20 h-20 z-0 opacity-80">
+                    <div class="relative z-10 w-full pr-24"> 
+                        <h2 id="reportTitle" class="text-base font-bold leading-snug tracking-normal"></h2>
+                        <div class="mt-3 pt-3 border-t border-white/20">
+                             <span id="headerDateTime" class="text-xs font-medium text-brand-50 block opacity-90 tracking-wide"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="summaryStats" class="bg-white px-4 pt-4 shrink-0"></div>
+
+                <div id="reportContent" class="divide-y divide-slate-100 flex-1 overflow-y-auto">
+                    <div class="p-8 text-center text-slate-400 text-xs italic leading-relaxed h-full flex items-center justify-center">Adicione registros no formulário ao lado.</div>
+                </div>
+
+                <div class="bg-slate-100 p-3 text-center border-t border-slate-200 shrink-0">
+                    <div class="flex justify-center items-center gap-2 text-[10px] text-slate-400 font-medium uppercase tracking-widest leading-relaxed">
+                        SPG SEDE • Controle de Descarte
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DE CONFIRMAÇÃO DE ENVIO -->
+    <div id="confirmModal" class="fixed inset-0 bg-black/60 z-[60] hidden flex justify-center items-center backdrop-blur-sm transition-opacity duration-300">
+        <div class="bg-white rounded-2xl shadow-2xl p-6 w-11/12 max-w-md transform transition-all scale-100">
+            <div class="mx-auto flex items-center justify-center h-14 w-14 rounded-full bg-brand-50 mb-4">
+                <i data-lucide="help-circle" class="h-8 w-8 text-brand-600"></i>
+            </div>
+            <h3 class="text-xl font-black text-slate-800 text-center">Conferiu os dados?</h3>
+            <p class="text-sm text-slate-500 mt-3 text-center leading-relaxed font-medium">
+                Você conferiu todas as informações? Se sim, toque para enviar.<br><br>
+                <span class="text-amber-600 font-bold">Caso tenha enviado alguma informação errada, informe ao responsável para que ele possa alterar na planilha.</span>
+            </p>
+            <div class="grid grid-cols-2 gap-3 mt-6">
+                <button onclick="hideConfirmModal()" class="px-4 py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold rounded-xl text-sm transition-colors uppercase">
+                    Cancelar
+                </button>
+                <button onclick="executeSend()" class="px-4 py-3 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-xl text-sm transition-all shadow-lg shadow-brand-600/20 active:scale-95 uppercase">
+                    Enviar Agora
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DE MENSAGEM -->
+    <div id="messageModal" class="fixed inset-0 bg-black/50 z-50 hidden flex justify-center items-center backdrop-blur-sm transition-opacity duration-300">
+        <div class="bg-white rounded-xl shadow-2xl p-6 w-11/12 max-w-sm transform transition-all scale-100 text-center">
+            <div id="msgIconContainer" class="mx-auto flex items-center justify-center h-12 w-12 rounded-full mb-4"></div>
+            <h3 id="msgTitle" class="text-lg font-bold text-slate-800"></h3>
+            <p id="msgText" class="text-sm text-slate-500 mt-2 mb-4"></p>
+            <button onclick="hideMessageModal()" class="w-full px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white font-bold rounded-lg text-sm transition-colors">OK</button>
+        </div>
+    </div>
+
+    <script>
+        console.log("Aplicação 'Registro de Descarte SPG' inicializada.");
+
+        let discardData = JSON.parse(localStorage.getItem('spg_discardData_v2')) || [];
+        let editingIndex = -1;
+        let clearConfirmTimer;
+        let currentPhotos = [];
+
+        const partnersData = {
+            "Brócolis": ["Fazenda Oásis", "Sítio Valdir", "Sítio Reginaldo", "Sítio Rafael", "Sítio Márcia", "Sítio Filho", "Sítio Evandro", "Sítio Edivan", "Sítio Araçá", "Agrotech Pinheiro"],
+            "Couve-Flor": ["Fazenda Oásis", "Agrotech Pinheiro"],
+            "Tomate Cereja": ["Raimundo", "Nelinho", "Hélio", "Gutenberg"],
+            "Pepino": ["SPG Estufa 1"]
+        };
+
+        const commonBrocolisCouveFlor = [
+            "Amarelado e Lagartas", "Amarelado e Lodando", "Fungo e Amarelado", "Traça e Amarelado",
+            "Lodando Traça e Amarelado", "Amarelado e Passado", "Deformado e Passado", "Passado e Deformado",
+            "Passado e Traça", "Passado e Talo Fungo", "Amarelado, Lodado e Manchas", "Talo com Fungo e Passado",
+            "Pulgão", "Cabeça amarelada", "Manchas", "Fungos", "Peso abaixo da média e Estragado",
+            "Talo com Fungo", "Traça", "Lagartas", "Amarelado", "Passado", "Deformado"
+        ];
+
+        const reasonsData = {
+            "Tomate Cereja": ["Furado", "Passado e Furado", "Estragado", "Rachado", "Rachado e Estragado", "Outros"],
+            "Brócolis": ["Talos", "Peso abaixo da média", ...commonBrocolisCouveFlor, "Outros"],
+            "Couve-Flor": ["Folhas Couve-Flor", ...commonBrocolisCouveFlor, "Outros"],
+            "Pepino": ["Outros"]
+        };
+
+        lucide.createIcons();
+        
+        setTimeout(() => {
+            const dateInput = document.getElementById('reportDate');
+            if (dateInput && !dateInput.value) {
+                const today = new Date();
+                const yyyy = today.getFullYear();
+                const mm = String(today.getMonth() + 1).padStart(2, '0');
+                const dd = String(today.getDate()).padStart(2, '0');
+                dateInput.value = `${yyyy}-${mm}-${dd}`;
+            }
+            clearBlockForm();
+            renderList(); 
+            updateDynamicTitle();
+            renderReport(); 
+        }, 100);
+
+        function getWeekNumber(d) {
+            d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+            d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+            var yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+            return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+        }
+
+        function getSelectedDate() {
+            const dateInput = document.getElementById('reportDate');
+            if (dateInput && dateInput.value) {
+                const parts = dateInput.value.split('-');
+                return new Date(parts[0], parts[1] - 1, parts[2]);
+            }
+            return new Date();
+        }
+
+        function updateDynamicTitle() {
+            const reportDate = getSelectedDate();
+            const now = new Date(); 
+            const hours = now.getHours();
+            const day = String(reportDate.getDate()).padStart(2, '0');
+            const month = String(reportDate.getMonth() + 1).padStart(2, '0');
+            const year = reportDate.getFullYear();
+            const weekNumber = getWeekNumber(reportDate);
+            const daysOfWeek = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
+            const dayOfWeek = daysOfWeek[reportDate.getDay()];
+            let greeting = hours < 12 ? "Bom dia, Pessoal!" : (hours < 18 ? "Boa tarde, Pessoal!" : "Boa noite, Pessoal!");
+            let partnerDisplay = "";
+            if (discardData && discardData.length > 0) { partnerDisplay = `<br><span class="text-xl font-black text-brand-100">${discardData[0].partnerName}</span>`; }
+            const titleEl = document.getElementById('reportTitle');
+            if (titleEl) titleEl.innerHTML = `${greeting}<br>Registro de Descarte - ${dayOfWeek}${partnerDisplay}`;
+            const dateEl = document.getElementById('headerDateTime');
+            if (dateEl) dateEl.innerText = `Data ref.: ${day}/${month}/${year} - Semana ${weekNumber}`;
+        }
+
+        function updateDynamicFields(selectedPartner = "", selectedReason = "") {
+            const cultureSelect = document.getElementById('culture');
+            const partnerSelect = document.getElementById('partnerName');
+            const reasonSelect = document.getElementById('discardReason');
+            const selectedCulture = cultureSelect.value;
+            partnerSelect.innerHTML = '<option value="">Selecione o parceiro...</option>';
+            reasonSelect.innerHTML = '<option value="">Selecione o motivo...</option>';
+            if (selectedCulture) {
+                if (partnersData[selectedCulture]) {
+                    partnerSelect.disabled = false;
+                    partnersData[selectedCulture].forEach(partner => {
+                        const option = document.createElement('option');
+                        option.value = partner; option.textContent = partner;
+                        partnerSelect.appendChild(option);
+                    });
+                    if (selectedPartner) partnerSelect.value = selectedPartner;
+                }
+                if (reasonsData[selectedCulture]) {
+                    reasonSelect.disabled = false;
+                    reasonsData[selectedCulture].forEach(reason => {
+                        const option = document.createElement('option');
+                        option.value = reason; option.textContent = reason;
+                        reasonSelect.appendChild(option);
+                    });
+                    if (selectedReason) reasonSelect.value = selectedReason;
+                }
+            } else {
+                partnerSelect.innerHTML = '<option value="">Selecione a cultura primeiro...</option>'; partnerSelect.disabled = true;
+                reasonSelect.innerHTML = '<option value="">Selecione a cultura primeiro...</option>'; reasonSelect.disabled = true;
+            }
+            toggleCustomReason();
+        }
+
+        function toggleCustomReason() {
+            const reasonSelect = document.getElementById('discardReason');
+            const customContainer = document.getElementById('customReasonContainer');
+            const customInput = document.getElementById('customReason');
+            if (reasonSelect.value === 'Outros') { customContainer.classList.remove('hidden'); customInput.setAttribute('required', 'required'); } 
+            else { customContainer.classList.add('hidden'); customInput.removeAttribute('required'); }
+        }
+
+        function formatDecimalInput(input) {
+            let value = input.value.replace(/[^0-9,]/g, ''); 
+            const parts = value.split(',');
+            if (parts.length > 2) { value = parts[0] + ',' + parts.slice(1).join(''); }
+            let [integerPart, decimalPart] = value.split(',');
+            if (integerPart) { integerPart = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, "."); }
+            if (decimalPart !== undefined) { input.value = integerPart + ',' + decimalPart; } else { input.value = integerPart; }
+        }
+
+        function formatSmart(value) {
+            if (value === 0 || value === '0') return "0";
+            const num = typeof value === 'string' ? parsePTBRNumber(value) : value;
+            if (isNaN(num)) return value;
+            return num.toLocaleString('pt-BR', {minimumFractionDigits: 0, maximumFractionDigits: 3});
+        }
+
+        function parsePTBRNumber(val) {
+            if (!val) return 0;
+            if (typeof val === 'number') return val;
+            return parseFloat(val.toString().replace(/\./g, '').replace(',', '.')) || 0;
+        }
+
+        async function handleImageUpload(event) {
+            const files = Array.from(event.target.files);
+            if (!files.length) return;
+            if (currentPhotos.length + files.length > 5) { showMessageModal('Limite Excedido', 'Você pode enviar no máximo 5 fotos por registro.', 'error'); return; }
+            document.getElementById('discardPhoto').disabled = true;
+            for (const file of files) { if (!file.type.startsWith('image/')) continue; const base64 = await processImage(file); currentPhotos.push(base64); }
+            document.getElementById('discardPhoto').value = ''; document.getElementById('discardPhoto').disabled = false;
+            renderPhotoPreviews();
+        }
+
+        function processImage(file) {
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const img = new Image();
+                    img.onload = function() {
+                        const canvas = document.createElement('canvas');
+                        const MAX_WIDTH = 800; const MAX_HEIGHT = 800;
+                        let width = img.width; let height = img.height;
+                        if (width > height) { if (width > MAX_WIDTH) { height *= MAX_WIDTH / width; width = MAX_WIDTH; } } 
+                        else { if (height > MAX_HEIGHT) { width *= MAX_HEIGHT / height; height = MAX_HEIGHT; } }
+                        canvas.width = width; canvas.height = height;
+                        const ctx = canvas.getContext('2d'); ctx.drawImage(img, 0, 0, width, height);
+                        resolve(canvas.toDataURL('image/jpeg', 0.7));
+                    }
+                    img.src = e.target.result;
+                }
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function renderPhotoPreviews() {
+            const container = document.getElementById('photoPreviewContainer');
+            const counter = document.getElementById('photoCounter');
+            counter.innerText = `${currentPhotos.length}/5`;
+            if (currentPhotos.length === 0) { container.classList.add('hidden'); container.innerHTML = ''; return; }
+            container.classList.remove('hidden');
+            container.innerHTML = currentPhotos.map((photo, index) => `
+                <div class="relative inline-block w-full">
+                    <img src="${photo}" class="w-full h-16 object-cover rounded-lg border border-slate-200 shadow-sm">
+                    <button type="button" onclick="removePhoto(${index})" class="absolute -top-2 -right-2 bg-white border border-slate-200 text-brand-500 rounded-full p-0.5 shadow-md hover:bg-brand-50 transition-colors">
+                        <i data-lucide="x" class="w-3 h-3"></i>
+                    </button>
+                </div>
+            `).join('');
+            lucide.createIcons();
+        }
+
+        function removePhoto(index) { currentPhotos.splice(index, 1); renderPhotoPreviews(); }
+
+        function saveData() { 
+            try { localStorage.setItem('spg_discardData_v2', JSON.stringify(discardData)); } 
+            catch (e) { if (e.name === 'QuotaExceededError') { showMessageModal('Memória Cheia', 'Não é possível salvar mais fotos localmente.', 'error'); } }
+        }
+
+        function addItem(e) {
+            e.preventDefault();
+            if (editingIndex === -1 && discardData.length >= 1) { showMessageModal('Limite Atingido', 'Permitido apenas 1 registro por relatório.', 'error'); return; }
+            let finalReason = document.getElementById('discardReason').value;
+            if (finalReason === 'Outros') { finalReason = document.getElementById('customReason').value.trim(); }
+            const item = { id: Date.now(), partnerName: document.getElementById('partnerName').value.trim(), culture: document.getElementById('culture').value.trim(), quantity: document.getElementById('discardQuantity').value, reason: finalReason, photos: [...currentPhotos] };
+            if (editingIndex >= 0) { discardData[editingIndex] = item; } else { discardData.push(item); }
+            saveData(); clearBlockForm(); renderReport(); renderList();
+        }
+
+        function clearBlockForm() {
+            document.getElementById('culture').value = ''; updateDynamicFields();
+            document.getElementById('discardQuantity').value = ''; document.getElementById('customReason').value = '';
+            toggleCustomReason(); currentPhotos = []; renderPhotoPreviews();
+            editingIndex = -1;
+            const btn = document.getElementById('submitBtn');
+            if (btn) { btn.innerHTML = '<i data-lucide="plus-circle" class="w-4 h-4"></i> <span>Adicionar ao Relatório</span>'; btn.classList.replace('bg-blue-600', 'bg-slate-800'); }
+            lucide.createIcons();
+        }
+
+        function editItem(index) {
+            const item = discardData[index]; editingIndex = index;
+            document.getElementById('culture').value = item.culture; updateDynamicFields(item.partnerName); 
+            const reasonSelect = document.getElementById('discardReason'); let isCustomReason = true;
+            for (let i = 0; i < reasonSelect.options.length; i++) { if (reasonSelect.options[i].value === item.reason) { isCustomReason = false; break; } }
+            if (!isCustomReason) { reasonSelect.value = item.reason; toggleCustomReason(); } 
+            else { reasonSelect.value = 'Outros'; toggleCustomReason(); document.getElementById('customReason').value = item.reason; }
+            document.getElementById('discardQuantity').value = item.quantity;
+            currentPhotos = item.photos ? [...item.photos] : []; renderPhotoPreviews();
+            const btn = document.getElementById('submitBtn'); btn.innerHTML = '<i data-lucide="save" class="w-4 h-4"></i> <span>Salvar</span>'; btn.classList.replace('bg-slate-800', 'bg-blue-600');
+            lucide.createIcons();
+        }
+
+        function removeItem(index) { if (editingIndex === index) clearBlockForm(); else if (editingIndex > index) editingIndex--; discardData.splice(index, 1); saveData(); renderReport(); renderList(); }
+
+        function clearAll() {
+            const btn = document.getElementById('clearAllBtn');
+            if (btn.innerText === "Confirmar?") { discardData = []; saveData(); clearBlockForm(); renderReport(); renderList(); btn.innerText = "Limpar Tudo"; } 
+            else { btn.innerText = "Confirmar?"; setTimeout(() => { btn.innerText = "Limpar Tudo"; }, 3000); }
+        }
+
+        function renderList() {
+            const list = document.getElementById('itemsList');
+            list.innerHTML = discardData.length ? '' : '<li class="text-center text-slate-400 italic py-2">Nenhum registro.</li>';
+            discardData.forEach((item, index) => {
+                list.innerHTML += `<li class="flex justify-between items-center p-3 rounded border bg-slate-50">
+                    <div class="flex flex-col"><span class="font-bold text-sm">${item.partnerName}</span><span class="text-xs">${item.culture} - ${item.quantity} kg</span></div>
+                    <div class="flex items-center"><button onclick="editItem(${index})" class="text-blue-500 mr-2"><i data-lucide="pencil" class="w-4 h-4"></i></button><button onclick="removeItem(${index})" class="text-red-500"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div>
+                </li>`;
+            });
+            lucide.createIcons();
+        }
+
+        function renderReport() {
+            updateDynamicTitle();
+            const container = document.getElementById('reportContent');
+            const summaryStats = document.getElementById('summaryStats');
+            if (!discardData || discardData.length === 0) {
+                container.innerHTML = `<div class="p-8 text-center text-slate-400 text-xs italic leading-relaxed h-full flex items-center justify-center">Adicione registros no formulário ao lado.</div>`;
+                summaryStats.innerHTML = '';
+            } else {
+                const item = discardData[0];
+                const displayWeight = formatSmart(parsePTBRNumber(item.quantity));
+                summaryStats.innerHTML = `
+                    <div class="bg-brand-50 rounded-xl p-4 flex flex-wrap items-center justify-between gap-4 border border-brand-100 shadow-sm">
+                        <div class="flex items-center gap-3">
+                            <div>
+                                <div class="text-[10px] text-brand-600 font-bold uppercase tracking-wider mb-0.5">Total Descartado</div>
+                                <div class="text-2xl font-black text-brand-800 leading-none">${displayWeight} <span class="text-sm font-bold text-brand-600">KG</span></div>
+                            </div>
+                        </div>
+                        <div class="flex flex-wrap items-center gap-6">
+                            <!-- ADICIONADO O TRAÇINHO ENTRE CULTURA E MOTIVO -->
+                            <span class="text-slate-600 text-2xl font-black uppercase leading-none">${item.culture}</span>
+                            <span class="text-slate-400 text-2xl font-black">-</span>
+                            <span class="text-amber-700 text-2xl font-black uppercase leading-none">${item.reason.replace(/\n/g, ' ')}</span>
+                        </div>
+                    </div>`;
+                let photoHtml = '';
+                if (item.photos && item.photos.length > 0) {
+                    photoHtml = `<div class="w-full flex flex-col gap-3">`;
+                    item.photos.forEach(p => { photoHtml += `<img src="${p}" class="w-full h-auto rounded-xl border border-slate-200 shadow-sm object-contain bg-slate-100 max-h-[500px]">`; });
+                    photoHtml += `</div>`;
+                } else { photoHtml = `<div class="w-full h-24 rounded-xl border border-dashed border-slate-300 bg-slate-50 flex flex-col items-center justify-center text-slate-400"><i data-lucide="image-off" class="w-6 h-6 mb-1 opacity-50"></i><span class="text-[9px] uppercase">Sem Foto</span></div>`; }
+                container.innerHTML = `<div class="p-4">${photoHtml}</div>`;
+            }
+            lucide.createIcons();
+        }
+
+        function confirmBeforeSend() { if (discardData.length === 0) { showMessageModal('Atenção', 'Adicione o registro primeiro.', 'error'); return; } document.getElementById('confirmModal').classList.remove('hidden'); lucide.createIcons(); }
+        function hideConfirmModal() { document.getElementById('confirmModal').classList.add('hidden'); }
+        function executeSend() { hideConfirmModal(); downloadImage(); }
+
+        async function downloadImage() {
+            const element = document.getElementById('report-card');
+            const btnSpan = document.querySelector('button[onclick="confirmBeforeSend()"] span.hidden.sm\\:inline') || document.querySelector('button[onclick="confirmBeforeSend()"] span');
+            const originalText = btnSpan.innerText; btnSpan.innerText = "Gerando...";
+            try {
+                const images = element.querySelectorAll('img');
+                await Promise.all(Array.from(images).map(img => { if (img.complete) return Promise.resolve(); return new Promise(resolve => { img.onload = resolve; img.onerror = resolve; }); }));
+                const canvas = await html2canvas(element, { scale: 3, useCORS: true, scrollY: -window.scrollY, backgroundColor: '#ffffff', onclone: (doc) => {
+                    const el = doc.getElementById('report-card'); const content = doc.getElementById('reportContent');
+                    if (el) { el.style.width = '600px'; el.style.maxWidth = '600px'; el.style.margin = '0'; el.style.borderRadius = '0'; el.style.border = 'none'; }
+                    if (content) { content.style.height = 'auto'; content.style.overflow = 'visible'; content.style.maxHeight = 'none'; }
+                }});
+                const reportDate = getSelectedDate();
+                const dateStr = reportDate.toLocaleDateString('pt-BR').replace(/\//g, '-');
+                const weekNum = getWeekNumber(reportDate);
+                sendDataToGoogleSheets({ date: reportDate.toLocaleDateString('pt-BR'), items: discardData.map(d => ({ partnerName: d.partnerName, culture: d.culture, quantity: d.quantity, reason: d.reason })) });
+                const partnerNameForFile = discardData[0].partnerName;
+                const weekday = reportDate.toLocaleDateString('pt-BR', { weekday: 'long' }).charAt(0).toUpperCase() + reportDate.toLocaleDateString('pt-BR', { weekday: 'long' }).slice(1);
+                const filename = `Descarte - ${partnerNameForFile} - ${weekday} ${dateStr} Sem ${weekNum}.png`;
+                const shareText = `Relatório de *Descartes* - ${partnerNameForFile}\nData: ${reportDate.toLocaleDateString('pt-BR')}\nMotivo: *${discardData[0].reason}*\nTotal: *${formatSmart(discardData.reduce((acc, d) => acc + parsePTBRNumber(d.quantity), 0))} kg*`;
+                canvas.toBlob(async (blob) => {
+                    const file = new File([blob], filename, { type: 'image/png' });
+                    if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: filename, text: shareText }); } 
+                    else { downloadFile(canvas.toDataURL('image/png'), filename); setTimeout(() => { window.open(`https://web.whatsapp.com/send?text=${encodeURIComponent(shareText)}`, '_blank'); }, 2000); }
+                }, 'image/png');
+            } catch (err) { showMessageModal('Erro', 'Falha ao gerar imagem.', 'error'); } finally { if(btnSpan) btnSpan.innerText = originalText; }
+        }
+
+        function downloadFile(uri, name) { const link = document.createElement('a'); link.href = uri; link.download = name; document.body.appendChild(link); link.click(); document.body.removeChild(link); }
+        async function sendDataToGoogleSheets(payload) {
+            const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyBgrgVYdEaHhk1vAejtnUwbFdDIeU_v0F9byTgWRG-9ylb_ForYHUBs5-mSuPH2sAJ/exec"; 
+            if (!SCRIPT_URL || SCRIPT_URL === "SUA_URL_DO_APPS_SCRIPT_AQUI") return;
+            try { await fetch(SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload) }); } catch (err) {}
+        }
+
+        function showMessageModal(title, message, type) {
+            const modal = document.getElementById('messageModal'); const iconContainer = document.getElementById('msgIconContainer');
+            const titleEl = document.getElementById('msgTitle'); const textEl = document.getElementById('msgText');
+            titleEl.innerText = title; textEl.innerText = message;
+            if (type === 'error') { iconContainer.className = "mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4"; iconContainer.innerHTML = '<i data-lucide="alert-circle" class="h-6 w-6 text-red-600"></i>'; } 
+            else if (type === 'success') { iconContainer.className = "mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 mb-4"; iconContainer.innerHTML = '<i data-lucide="check-circle" class="h-6 w-6 text-green-600"></i>'; }
+            else { iconContainer.className = "mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-blue-100 mb-4"; iconContainer.innerHTML = '<i data-lucide="info" class="h-6 w-6 text-blue-600"></i>'; }
+            modal.classList.remove('hidden'); lucide.createIcons();
+        }
+        function hideMessageModal() { document.getElementById('messageModal').classList.add('hidden'); }
+    </script>
+</body>
+</html>
