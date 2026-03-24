@@ -230,8 +230,9 @@
         let clearConfirmTimer;
         let currentPhotos = [];
 
+        // --- RELAÇÃO CULTURAS x PARCEIROS (ATUALIZADO Sítio Leitão) ---
         const partnersData = {
-            "Brócolis": ["Fazenda Oásis", "Sítio Valdir", "Sítio Reginaldo", "Sítio Rafael", "Sítio Márcia", "Sítio Filho", "Sítio Evandro", "Sítio Edivan", "Sítio Araçá", "Agrotech Pinheiro"],
+            "Brócolis": ["Fazenda Oásis", "Sítio Valdir", "Sítio Leitão", "Sítio Márcia", "Sítio Filho", "Sítio Evandro", "Sítio Edivan", "Sítio Araçá", "Agrotech Pinheiro"],
             "Couve-Flor": ["Fazenda Oásis", "Agrotech Pinheiro"],
             "Tomate Cereja": ["Raimundo", "Nelinho", "Hélio", "Gutenberg"],
             "Pepino": ["SPG Estufa 1"]
@@ -384,15 +385,12 @@
                     const img = new Image();
                     img.onload = function() {
                         const canvas = document.createElement('canvas');
-                        // AJUSTE PARA HD: Aumentado de 800 para 1200 para melhor detalhamento nas imagens individuais
-                        const MAX_WIDTH = 1200; 
-                        const MAX_HEIGHT = 1200;
+                        const MAX_WIDTH = 1200; const MAX_HEIGHT = 1200;
                         let width = img.width; let height = img.height;
                         if (width > height) { if (width > MAX_WIDTH) { height *= MAX_WIDTH / width; width = MAX_WIDTH; } } 
                         else { if (height > MAX_HEIGHT) { width *= MAX_HEIGHT / height; height = MAX_HEIGHT; } }
                         canvas.width = width; canvas.height = height;
                         const ctx = canvas.getContext('2d'); ctx.drawImage(img, 0, 0, width, height);
-                        // AJUSTE PARA HD: Aumentado qualidade de 0.7 para 0.9
                         resolve(canvas.toDataURL('image/jpeg', 0.9));
                     }
                     img.src = e.target.result;
@@ -525,7 +523,6 @@
                 const images = element.querySelectorAll('img');
                 await Promise.all(Array.from(images).map(img => { if (img.complete) return Promise.resolve(); return new Promise(resolve => { img.onload = resolve; img.onerror = resolve; }); }));
                 
-                // AJUSTE PARA HD: Multiplicador de escala aumentado de 3 para 5 para uma captura ultra nítida
                 const canvas = await html2canvas(element, { 
                     scale: 5, 
                     useCORS: true, 
@@ -540,7 +537,25 @@
                 const reportDate = getSelectedDate();
                 const dateStr = reportDate.toLocaleDateString('pt-BR').replace(/\//g, '-');
                 const weekNum = getWeekNumber(reportDate);
-                sendDataToGoogleSheets({ date: reportDate.toLocaleDateString('pt-BR'), items: discardData.map(d => ({ partnerName: d.partnerName, culture: d.culture, quantity: d.quantity, reason: d.reason })) });
+
+                // --- LÓGICA DE DIVISÃO Sítio Leitão PARA A PLANILHA ---
+                const itemsToSync = [];
+                discardData.forEach(d => {
+                    if (d.partnerName === "Sítio Leitão") {
+                        const totalWeight = parsePTBRNumber(d.quantity);
+                        const halfWeight = totalWeight / 2;
+                        const halfWeightFormatted = formatSmart(halfWeight);
+                        
+                        // Envia Rafael e Reginaldo separados
+                        itemsToSync.push({ partnerName: "Sítio Rafael", culture: d.culture, quantity: halfWeightFormatted, reason: d.reason });
+                        itemsToSync.push({ partnerName: "Sítio Reginaldo", culture: d.culture, quantity: halfWeightFormatted, reason: d.reason });
+                    } else {
+                        itemsToSync.push({ partnerName: d.partnerName, culture: d.culture, quantity: d.quantity, reason: d.reason });
+                    }
+                });
+                
+                sendDataToGoogleSheets({ date: reportDate.toLocaleDateString('pt-BR'), items: itemsToSync });
+
                 const partnerNameForFile = discardData[0].partnerName;
                 const weekday = reportDate.toLocaleDateString('pt-BR', { weekday: 'long' }).charAt(0).toUpperCase() + reportDate.toLocaleDateString('pt-BR', { weekday: 'long' }).slice(1);
                 const filename = `Descarte - ${partnerNameForFile} - ${weekday} ${dateStr} Sem ${weekNum}.png`;
@@ -555,6 +570,7 @@
         }
 
         function downloadFile(uri, name) { const link = document.createElement('a'); link.href = uri; link.download = name; document.body.appendChild(link); link.click(); document.body.removeChild(link); }
+        
         async function sendDataToGoogleSheets(payload) {
             const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyBgrgVYdEaHhk1vAejtnUwbFdDIeU_v0F9byTgWRG-9ylb_ForYHUBs5-mSuPH2sAJ/exec"; 
             if (!SCRIPT_URL || SCRIPT_URL === "SUA_URL_DO_APPS_SCRIPT_AQUI") return;
