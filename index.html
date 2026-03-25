@@ -230,7 +230,7 @@
         let clearConfirmTimer;
         let currentPhotos = [];
 
-        // --- RELAÇÃO CULTURAS x PARCEIROS (ATUALIZADO Sítio Leitão) ---
+        // --- RELAÇÃO CULTURAS x PARCEIROS ---
         const partnersData = {
             "Brócolis": ["Fazenda Oásis", "Sítio Valdir", "Sítio Leitão", "Sítio Márcia", "Sítio Filho", "Sítio Evandro", "Sítio Edivan", "Sítio Araçá", "Agrotech Pinheiro"],
             "Couve-Flor": ["Fazenda Oásis", "Agrotech Pinheiro"],
@@ -294,13 +294,17 @@
             const month = String(reportDate.getMonth() + 1).padStart(2, '0');
             const year = reportDate.getFullYear();
             const weekNumber = getWeekNumber(reportDate);
-            const daysOfWeek = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
-            const dayOfWeek = daysOfWeek[reportDate.getDay()];
+            
             let greeting = hours < 12 ? "Bom dia, Pessoal!" : (hours < 18 ? "Boa tarde, Pessoal!" : "Boa noite, Pessoal!");
+            
             let partnerDisplay = "";
-            if (discardData && discardData.length > 0) { partnerDisplay = `<br><span class="text-xl font-black text-brand-100">${discardData[0].partnerName}</span>`; }
+            if (discardData && discardData.length > 0) { 
+                partnerDisplay = `<br><span class="text-sm font-medium text-brand-100">Parceiro:</span> <span class="text-xl font-black text-white">${discardData[0].partnerName}</span>`; 
+            }
+            
             const titleEl = document.getElementById('reportTitle');
-            if (titleEl) titleEl.innerHTML = `${greeting}<br>Registro de Descarte - ${dayOfWeek}${partnerDisplay}`;
+            if (titleEl) titleEl.innerHTML = `${greeting}<br>Registro de Descarte${partnerDisplay}`;
+            
             const dateEl = document.getElementById('headerDateTime');
             if (dateEl) dateEl.innerText = `Data ref.: ${day}/${month}/${year} - Semana ${weekNumber}`;
         }
@@ -565,7 +569,7 @@
                 const dataDescarte = dataAtual.toLocaleDateString('pt-BR');
                 const horaDescarte = dataAtual.toLocaleTimeString('pt-BR'); // Pega HH:mm:ss automaticamente
                 
-                const shareText = `Relatório de *Descartes* - ${partnerNameForFile}\nData da Colheita: ${reportDate.toLocaleDateString('pt-BR')}\nData do Descarte: ${dataDescarte} às ${horaDescarte}\nMotivo: *${discardData[0].reason}*\nTotal: *${formatSmart(discardData.reduce((acc, d) => acc + parsePTBRNumber(d.quantity), 0))} kg*`;
+                const shareText = `*Registro de Descarte*\nParceiro: *${partnerNameForFile}*\nData da Colheita: ${reportDate.toLocaleDateString('pt-BR')}\nData do Descarte: ${dataDescarte} às ${horaDescarte}\nMotivo: *${discardData[0].reason}*\nTotal: *${formatSmart(discardData.reduce((acc, d) => acc + parsePTBRNumber(d.quantity), 0))} kg*`;
                 
                 canvas.toBlob(async (blob) => {
                     const file = new File([blob], filename, { type: 'image/png' });
