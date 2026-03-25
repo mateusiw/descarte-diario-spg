@@ -289,30 +289,27 @@
         function updateDynamicTitle() {
             const reportDate = getSelectedDate();
             const now = new Date(); 
-            const hours = now.getHours();
             const day = String(reportDate.getDate()).padStart(2, '0');
             const month = String(reportDate.getMonth() + 1).padStart(2, '0');
             const year = reportDate.getFullYear();
             const weekNumber = getWeekNumber(reportDate);
             
-            let greeting = hours < 12 ? "Bom dia, Pessoal!" : (hours < 18 ? "Boa tarde, Pessoal!" : "Boa noite, Pessoal!");
-            
             let partnerDisplay = "";
             let addedAtDisplay = "";
             
             if (discardData && discardData.length > 0) { 
-                partnerDisplay = `<br><span class="text-sm font-medium text-brand-100">Parceiro:</span> <span class="text-xl font-black text-white">${discardData[0].partnerName}</span>`; 
+                // Coloca o traço e o nome do parceiro em destaque na mesma linha (ou quebrando se a tela for pequena)
+                partnerDisplay = ` - <span class="text-xl font-black text-white">${discardData[0].partnerName}</span>`; 
                 if (discardData[0].addedAt) {
-                    // Adicionada quebra de linha <br> e cor vermelha com destaque
                     addedAtDisplay = `<br><span class="text-red-300 font-bold inline-block pt-1">Data do Descarte: ${discardData[0].addedAt}</span>`;
                 }
             }
             
             const titleEl = document.getElementById('reportTitle');
-            if (titleEl) titleEl.innerHTML = `${greeting}<br>Registro de Descarte${partnerDisplay}`;
+            // Remove a saudação e deixa apenas Registro de Descarte - Parceiro
+            if (titleEl) titleEl.innerHTML = `Registro de Descarte${partnerDisplay}`;
             
             const dateEl = document.getElementById('headerDateTime');
-            // Trocado de innerText para innerHTML para suportar as cores e quebra de linha
             if (dateEl) dateEl.innerHTML = `Data da Colheita: ${day}/${month}/${year} - Semana ${weekNumber}${addedAtDisplay}`;
         }
 
@@ -590,7 +587,8 @@
                 const dataDescarte = dataAtual.toLocaleDateString('pt-BR');
                 const horaDescarte = dataAtual.toLocaleTimeString('pt-BR'); // Pega HH:mm:ss automaticamente
                 
-                const shareText = `*Registro de Descarte*\nParceiro: *${partnerNameForFile}*\nData da Colheita: ${reportDate.toLocaleDateString('pt-BR')}\nData do Descarte: ${dataDescarte} às ${horaDescarte}\nMotivo: *${discardData[0].reason}*\nTotal: *${formatSmart(discardData.reduce((acc, d) => acc + parsePTBRNumber(d.quantity), 0))} kg*`;
+                // Texto do WhatsApp formatado com espaçamentos duplos e destaques
+                const shareText = `*Registro de Descarte*\n\n*Parceiro:* ${partnerNameForFile}\n\n*Data da Colheita:* ${reportDate.toLocaleDateString('pt-BR')}\n\n*Data do Descarte:* ${dataDescarte} às ${horaDescarte}\n\n*Motivo:* ${discardData[0].reason}\n\n*Total:* ${formatSmart(discardData.reduce((acc, d) => acc + parsePTBRNumber(d.quantity), 0))} kg`;
                 
                 canvas.toBlob(async (blob) => {
                     const file = new File([blob], filename, { type: 'image/png' });
