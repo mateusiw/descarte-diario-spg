@@ -588,7 +588,7 @@
                 const horaDescarte = dataAtual.toLocaleTimeString('pt-BR'); // Pega HH:mm:ss automaticamente
                 
                 // Texto do WhatsApp formatado com espaçamentos duplos e destaques
-                const shareText = `*Registro de Descarte*\n\n*Parceiro:* ${partnerNameForFile}\n\n*Data da Colheita:* ${reportDate.toLocaleDateString('pt-BR')}\n\n*Data do Descarte:* ${dataDescarte} às ${horaDescarte}\n\n*Motivo:* ${discardData[0].reason}\n\n*Total:* ${formatSmart(discardData.reduce((acc, d) => acc + parsePTBRNumber(d.quantity), 0))} kg`;
+                const shareText = `*Registro de Descarte*\n\n*Parceiro:* ${partnerNameForFile}\n\n*Cultura:* ${discardData[0].culture}\n\n*Data da Colheita:* ${reportDate.toLocaleDateString('pt-BR')}\n\n*Data do Descarte:* ${dataDescarte} às ${horaDescarte}\n\n*Motivo:* ${discardData[0].reason}\n\n*Total:* ${formatSmart(discardData.reduce((acc, d) => acc + parsePTBRNumber(d.quantity), 0))} kg`;
                 
                 canvas.toBlob(async (blob) => {
                     const file = new File([blob], filename, { type: 'image/png' });
