@@ -298,15 +298,22 @@
             let greeting = hours < 12 ? "Bom dia, Pessoal!" : (hours < 18 ? "Boa tarde, Pessoal!" : "Boa noite, Pessoal!");
             
             let partnerDisplay = "";
+            let addedAtDisplay = "";
+            
             if (discardData && discardData.length > 0) { 
                 partnerDisplay = `<br><span class="text-sm font-medium text-brand-100">Parceiro:</span> <span class="text-xl font-black text-white">${discardData[0].partnerName}</span>`; 
+                if (discardData[0].addedAt) {
+                    // Adicionada quebra de linha <br> e cor vermelha com destaque
+                    addedAtDisplay = `<br><span class="text-red-300 font-bold inline-block pt-1">Data do Descarte: ${discardData[0].addedAt}</span>`;
+                }
             }
             
             const titleEl = document.getElementById('reportTitle');
             if (titleEl) titleEl.innerHTML = `${greeting}<br>Registro de Descarte${partnerDisplay}`;
             
             const dateEl = document.getElementById('headerDateTime');
-            if (dateEl) dateEl.innerText = `Data ref.: ${day}/${month}/${year} - Semana ${weekNumber}`;
+            // Trocado de innerText para innerHTML para suportar as cores e quebra de linha
+            if (dateEl) dateEl.innerHTML = `Data da Colheita: ${day}/${month}/${year} - Semana ${weekNumber}${addedAtDisplay}`;
         }
 
         function updateDynamicFields(selectedPartner = "", selectedReason = "") {
@@ -432,7 +439,21 @@
             if (editingIndex === -1 && discardData.length >= 1) { showMessageModal('Limite Atingido', 'Permitido apenas 1 registro por relatório.', 'error'); return; }
             let finalReason = document.getElementById('discardReason').value;
             if (finalReason === 'Outros') { finalReason = document.getElementById('customReason').value.trim(); }
-            const item = { id: Date.now(), partnerName: document.getElementById('partnerName').value.trim(), culture: document.getElementById('culture').value.trim(), quantity: document.getElementById('discardQuantity').value, reason: finalReason, photos: [...currentPhotos] };
+            
+            // --- CAPTURA DA DATA/HORA DE ADIÇÃO AO RELATÓRIO ---
+            const now = new Date();
+            const addedAt = `${now.toLocaleDateString('pt-BR')} às ${now.toLocaleTimeString('pt-BR')}`;
+            
+            const item = { 
+                id: Date.now(), 
+                partnerName: document.getElementById('partnerName').value.trim(), 
+                culture: document.getElementById('culture').value.trim(), 
+                quantity: document.getElementById('discardQuantity').value, 
+                reason: finalReason, 
+                photos: [...currentPhotos],
+                addedAt: addedAt // Grava a hora exata da adição
+            };
+            
             if (editingIndex >= 0) { discardData[editingIndex] = item; } else { discardData.push(item); }
             saveData(); clearBlockForm(); renderReport(); renderList();
         }
