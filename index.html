@@ -286,23 +286,10 @@
             return new Date();
         }
 
-        // --- FUNÇÃO PARA GERAR O ID EXCLUSIVO ---
-        function generateReportID(partner, culture, dateObj) {
-            let partnerInitials = "";
-            // Regra específica para o Sítio Edivan não conflitar com Sítio Evandro
-            if (partner === "Sítio Edivan") {
-                partnerInitials = "SED";
-            } else {
-                partnerInitials = partner.split(' ').map(w => w[0].toUpperCase()).join('.');
-            }
-            
-            const cultureInitials = culture.split(' ').map(w => w[0].toUpperCase()).join('.');
-            const day = String(dateObj.getDate()).padStart(2, '0');
-            const month = String(dateObj.getMonth() + 1).padStart(2, '0');
-            const year = dateObj.getFullYear();
-            const week = getWeekNumber(dateObj);
-            
-            return `${partnerInitials}-${cultureInitials} ${day}/${month}/${year}-S${week}`;
+        // --- FUNÇÃO PARA GERAR O ID EXCLUSIVO COM CÓDIGO ÚNICO ---
+        function generateReportID(item) {
+            // Retorna apenas a etiqueta curta gerada no momento da adição (ex: X7B2)
+            return item.uniqueSuffix || "0000";
         }
 
         function updateDynamicTitle() {
@@ -317,7 +304,8 @@
             let addedAtDisplay = "";
             
             if (discardData && discardData.length > 0) { 
-                const reportId = generateReportID(discardData[0].partnerName, discardData[0].culture, reportDate);
+                // Passa o item completo para a função gerar o ID
+                const reportId = generateReportID(discardData[0]);
                 
                 partnerDisplay = ` - <span class="text-xl font-black text-white">${discardData[0].partnerName}</span>`; 
                 if (discardData[0].addedAt) {
@@ -459,6 +447,15 @@
             const now = new Date();
             const addedAt = `${now.toLocaleDateString('pt-BR')} às ${now.toLocaleTimeString('pt-BR')}`;
             
+            // Gera ou mantém o código único do registro
+            let suffix = "";
+            if (editingIndex >= 0 && discardData[editingIndex].uniqueSuffix) {
+                suffix = discardData[editingIndex].uniqueSuffix; // Mantém o mesmo código se estiver apenas editando
+            } else {
+                // ALTERADO AQUI: Agora gera 6 caracteres (ex: A9X2B5) para evitar repetições ao longo dos anos
+                suffix = Math.random().toString(36).substring(2, 8).toUpperCase(); 
+            }
+            
             const item = { 
                 id: Date.now(), 
                 partnerName: document.getElementById('partnerName').value.trim(), 
@@ -466,7 +463,8 @@
                 quantity: document.getElementById('discardQuantity').value, 
                 reason: finalReason, 
                 photos: [...currentPhotos],
-                addedAt: addedAt 
+                addedAt: addedAt,
+                uniqueSuffix: suffix // Salva o código único dentro do item
             };
             
             if (editingIndex >= 0) { discardData[editingIndex] = item; } else { discardData.push(item); }
@@ -579,7 +577,9 @@
                 const weekNum = getWeekNumber(reportDate);
 
                 const partnerNameForFile = discardData[0].partnerName;
-                const reportId = generateReportID(partnerNameForFile, discardData[0].culture, reportDate);
+                
+                // Passa o item para a função na hora de enviar
+                const reportId = generateReportID(discardData[0]);
 
                 const itemsToSync = [];
                 discardData.forEach(d => {
