@@ -250,7 +250,7 @@
             "Tomate Cereja": ["Furado", "Passado e Furado", "Estragado", "Rachado", "Rachado e Estragado", "Outros"],
             "Brócolis": ["Talos", "Peso abaixo da média", ...commonBrocolisCouveFlor, "Outros"],
             "Couve-Flor": ["Folhas Couve-Flor", ...commonBrocolisCouveFlor, "Outros"],
-            "Pepino": ["Outros"]
+            "Pepino": ["Fora do Padrão", "Curvados", "Estragado", "Danificado", "Manchas", "Fungos", "Pequeno", "Outros"]
         };
 
         lucide.createIcons();
@@ -286,6 +286,25 @@
             return new Date();
         }
 
+        // --- FUNÇÃO PARA GERAR O ID EXCLUSIVO ---
+        function generateReportID(partner, culture, dateObj) {
+            let partnerInitials = "";
+            // Regra específica para o Sítio Edivan não conflitar com Sítio Evandro
+            if (partner === "Sítio Edivan") {
+                partnerInitials = "SED";
+            } else {
+                partnerInitials = partner.split(' ').map(w => w[0].toUpperCase()).join('.');
+            }
+            
+            const cultureInitials = culture.split(' ').map(w => w[0].toUpperCase()).join('.');
+            const day = String(dateObj.getDate()).padStart(2, '0');
+            const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+            const year = dateObj.getFullYear();
+            const week = getWeekNumber(dateObj);
+            
+            return `${partnerInitials}-${cultureInitials} ${day}/${month}/${year}-S${week}`;
+        }
+
         function updateDynamicTitle() {
             const reportDate = getSelectedDate();
             const now = new Date(); 
@@ -298,15 +317,15 @@
             let addedAtDisplay = "";
             
             if (discardData && discardData.length > 0) { 
-                // Coloca o traço e o nome do parceiro em destaque na mesma linha (ou quebrando se a tela for pequena)
+                const reportId = generateReportID(discardData[0].partnerName, discardData[0].culture, reportDate);
+                
                 partnerDisplay = ` - <span class="text-xl font-black text-white">${discardData[0].partnerName}</span>`; 
                 if (discardData[0].addedAt) {
-                    addedAtDisplay = `<br><span class="text-red-300 font-bold inline-block pt-1">Data do Descarte: ${discardData[0].addedAt}</span>`;
+                    addedAtDisplay = `<br><span class="text-red-300 font-bold inline-block pt-1">Data do Descarte: ${discardData[0].addedAt}</span><br><span class="mt-2 inline-block text-brand-100 text-xs font-mono tracking-widest">ID: ${reportId}</span>`;
                 }
             }
             
             const titleEl = document.getElementById('reportTitle');
-            // Remove a saudação e deixa apenas Registro de Descarte - Parceiro
             if (titleEl) titleEl.innerHTML = `Registro de Descarte${partnerDisplay}`;
             
             const dateEl = document.getElementById('headerDateTime');
@@ -437,7 +456,6 @@
             let finalReason = document.getElementById('discardReason').value;
             if (finalReason === 'Outros') { finalReason = document.getElementById('customReason').value.trim(); }
             
-            // --- CAPTURA DA DATA/HORA DE ADIÇÃO AO RELATÓRIO ---
             const now = new Date();
             const addedAt = `${now.toLocaleDateString('pt-BR')} às ${now.toLocaleTimeString('pt-BR')}`;
             
@@ -448,7 +466,7 @@
                 quantity: document.getElementById('discardQuantity').value, 
                 reason: finalReason, 
                 photos: [...currentPhotos],
-                addedAt: addedAt // Grava a hora exata da adição
+                addedAt: addedAt 
             };
             
             if (editingIndex >= 0) { discardData[editingIndex] = item; } else { discardData.push(item); }
@@ -560,7 +578,9 @@
                 const dateStr = reportDate.toLocaleDateString('pt-BR').replace(/\//g, '-');
                 const weekNum = getWeekNumber(reportDate);
 
-                // --- LÓGICA DE DIVISÃO Sítio Leitão PARA A PLANILHA ---
+                const partnerNameForFile = discardData[0].partnerName;
+                const reportId = generateReportID(partnerNameForFile, discardData[0].culture, reportDate);
+
                 const itemsToSync = [];
                 discardData.forEach(d => {
                     if (d.partnerName === "Sítio Leitão") {
@@ -568,7 +588,6 @@
                         const halfWeight = totalWeight / 2;
                         const halfWeightFormatted = formatSmart(halfWeight);
                         
-                        // Envia Rafael e Reginaldo separados
                         itemsToSync.push({ partnerName: "Sítio Rafael", culture: d.culture, quantity: halfWeightFormatted, reason: d.reason });
                         itemsToSync.push({ partnerName: "Sítio Reginaldo", culture: d.culture, quantity: halfWeightFormatted, reason: d.reason });
                     } else {
@@ -576,19 +595,20 @@
                     }
                 });
                 
-                sendDataToGoogleSheets({ date: reportDate.toLocaleDateString('pt-BR'), items: itemsToSync });
+                sendDataToGoogleSheets({ 
+                    date: reportDate.toLocaleDateString('pt-BR'), 
+                    reportId: reportId,
+                    items: itemsToSync 
+                });
 
-                const partnerNameForFile = discardData[0].partnerName;
                 const weekday = reportDate.toLocaleDateString('pt-BR', { weekday: 'long' }).charAt(0).toUpperCase() + reportDate.toLocaleDateString('pt-BR', { weekday: 'long' }).slice(1);
                 const filename = `Descarte - ${partnerNameForFile} - ${weekday} ${dateStr} Sem ${weekNum}.png`;
                 
-                // --- NOVA LÓGICA DE DATA E HORA DO DESCARTE ---
                 const dataAtual = new Date();
                 const dataDescarte = dataAtual.toLocaleDateString('pt-BR');
-                const horaDescarte = dataAtual.toLocaleTimeString('pt-BR'); // Pega HH:mm:ss automaticamente
+                const horaDescarte = dataAtual.toLocaleTimeString('pt-BR');
                 
-                // Texto do WhatsApp formatado com espaçamentos duplos e destaques
-                const shareText = `\`Registro de Descarte\`\n\n*Parceiro:* ${partnerNameForFile}\n\n*Cultura:* ${discardData[0].culture}\n\n*Data da Colheita:* ${reportDate.toLocaleDateString('pt-BR')}\n\n*Data do Descarte:* ${dataDescarte} às ${horaDescarte}\n\n*Motivo:* ${discardData[0].reason}\n\n*Total:* ${formatSmart(discardData.reduce((acc, d) => acc + parsePTBRNumber(d.quantity), 0))} kg`;
+                const shareText = `\`Registro de Descarte\`\n\n*ID:* ${reportId}\n\n*Parceiro:* ${partnerNameForFile}\n\n*Cultura:* ${discardData[0].culture}\n\n*Data da Colheita:* ${reportDate.toLocaleDateString('pt-BR')}\n\n*Data do Descarte:* ${dataDescarte} às ${horaDescarte}\n\n*Motivo:* ${discardData[0].reason}\n\n*Total:* ${formatSmart(discardData.reduce((acc, d) => acc + parsePTBRNumber(d.quantity), 0))} kg`;
                 
                 canvas.toBlob(async (blob) => {
                     const file = new File([blob], filename, { type: 'image/png' });
