@@ -447,14 +447,8 @@
             const now = new Date();
             const addedAt = `${now.toLocaleDateString('pt-BR')} às ${now.toLocaleTimeString('pt-BR')}`;
             
-            // Gera ou mantém o código único do registro
-            let suffix = "";
-            if (editingIndex >= 0 && discardData[editingIndex].uniqueSuffix) {
-                suffix = discardData[editingIndex].uniqueSuffix; // Mantém o mesmo código se estiver apenas editando
-            } else {
-                // ALTERADO AQUI: Agora gera 6 caracteres (ex: A9X2B5) para evitar repetições ao longo dos anos
-                suffix = Math.random().toString(36).substring(2, 8).toUpperCase(); 
-            }
+            // ALTERADO AQUI: Sempre gera um NOVO código único, mesmo se for uma edição (clique no lápis)
+            const suffix = Math.random().toString(36).substring(2, 8).toUpperCase(); 
             
             const item = { 
                 id: Date.now(), 
@@ -464,7 +458,7 @@
                 reason: finalReason, 
                 photos: [...currentPhotos],
                 addedAt: addedAt,
-                uniqueSuffix: suffix // Salva o código único dentro do item
+                uniqueSuffix: suffix // Salva o novo código único dentro do item
             };
             
             if (editingIndex >= 0) { discardData[editingIndex] = item; } else { discardData.push(item); }
