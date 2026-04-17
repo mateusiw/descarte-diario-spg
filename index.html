@@ -81,7 +81,7 @@
                 <label class="text-xs font-bold text-slate-500 uppercase flex items-center gap-2">
                     <i data-lucide="calendar" class="w-4 h-4 text-brand-500"></i> Data do recebimento da colheita
                 </label>
-                <input type="date" id="reportDate" onchange="updateDynamicTitle()" class="w-full p-2 border border-slate-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-500 outline-none text-slate-700 font-bold uppercase">
+                <input type="date" id="reportDate" onchange="updateDynamicTitle(); checkProductionData();" class="w-full p-2 border border-slate-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-500 outline-none text-slate-700 font-bold uppercase">
             </div>
             
             <!-- 2. ADICIONAR DESCARTE -->
@@ -100,7 +100,7 @@
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
                             <label class="text-xs font-bold text-slate-500 uppercase mb-1 block">Cultura</label>
-                            <select id="culture" onchange="updateDynamicFields()" required class="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none text-sm bg-white">
+                            <select id="culture" onchange="updateDynamicFields(); checkProductionData();" required class="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none text-sm bg-white">
                                 <option value="">Selecione a cultura...</option>
                                 <option value="Brócolis">Brócolis</option>
                                 <option value="Couve-Flor">Couve-Flor</option>
@@ -110,7 +110,7 @@
                         </div>
                         <div>
                             <label class="text-xs font-bold text-slate-500 uppercase mb-1 block">Nome do Parceiro</label>
-                            <select id="partnerName" required class="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none text-sm bg-white disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed">
+                            <select id="partnerName" onchange="checkProductionData();" required class="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none text-sm bg-white disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed">
                                 <option value="">Selecione a cultura primeiro...</option>
                             </select>
                         </div>
@@ -235,6 +235,9 @@
         let editingIndex = -1;
         let clearConfirmTimer;
         let currentPhotos = [];
+
+        // URL GLOBAL DO APPS SCRIPT
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzQ2D8GWIXz5isJzTRngub90x_87Myg11vGthmoJJ61SgUDk-GeVEESwPpX2lKG81VtQA/exec";
 
         // --- RELAÇÃO CULTURAS x PARCEIROS ---
         const partnersData = {
@@ -388,6 +391,43 @@
             if (!val) return 0;
             if (typeof val === 'number') return val;
             return parseFloat(val.toString().replace(/\./g, '').replace(',', '.')) || 0;
+        }
+
+        async function checkProductionData() {
+            const dateInput = document.getElementById('reportDate').value;
+            const cultureVal = document.getElementById('culture').value;
+            const partnerVal = document.getElementById('partnerName').value;
+            const prodInput = document.getElementById('productionQuantity');
+
+            // Só busca se os 3 campos estiverem preenchidos e não estivermos editando um item já salvo
+            if (dateInput && cultureVal && partnerVal && editingIndex === -1) {
+                const parts = dateInput.split('-');
+                const dateBR = `${parts[2]}/${parts[1]}/${parts[0]}`; // Converte de YYYY-MM-DD para DD/MM/YYYY
+                
+                prodInput.placeholder = "Buscando na planilha...";
+                prodInput.disabled = true;
+
+                try {
+                    // Manda os dados na URL (GET request)
+                    const url = `${SCRIPT_URL}?action=getProduction&date=${encodeURIComponent(dateBR)}&culture=${encodeURIComponent(cultureVal)}&partner=${encodeURIComponent(partnerVal)}`;
+                    
+                    const response = await fetch(url);
+                    const data = await response.json();
+                    
+                    if (data && data.production !== null && data.production !== undefined && data.production !== "") {
+                        prodInput.value = formatSmart(data.production);
+                    } else {
+                        prodInput.value = '';
+                        prodInput.placeholder = "Não encontrado na planilha";
+                    }
+                } catch (error) {
+                    console.log("Erro ao buscar a produção.", error);
+                    prodInput.value = '';
+                    prodInput.placeholder = "Erro de conexão (Apps Script)";
+                } finally {
+                    prodInput.disabled = false;
+                }
+            }
         }
 
         async function handleImageUpload(event) {
@@ -633,7 +673,6 @@
         function downloadFile(uri, name) { const link = document.createElement('a'); link.href = uri; link.download = name; document.body.appendChild(link); link.click(); document.body.removeChild(link); }
         
         async function sendDataToGoogleSheets(payload) {
-            const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyBgrgVYdEaHhk1vAejtnUwbFdDIeU_v0F9byTgWRG-9ylb_ForYHUBs5-mSuPH2sAJ/exec"; 
             if (!SCRIPT_URL || SCRIPT_URL === "SUA_URL_DO_APPS_SCRIPT_AQUI") return;
             try { await fetch(SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload) }); } catch (err) {}
         }
