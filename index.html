@@ -116,9 +116,15 @@
                         </div>
                     </div>
 
-                    <div>
-                        <label class="text-xs font-bold text-slate-500 uppercase mb-1 block">Quantidade (kg)</label>
-                        <input type="text" id="discardQuantity" oninput="formatDecimalInput(this)" required placeholder="Ex: 15,500" class="w-full p-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 outline-none">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                            <label class="text-xs font-bold text-slate-500 uppercase mb-1 block">Produção (kg) do Parceiro</label>
+                            <input type="text" id="productionQuantity" oninput="formatDecimalInput(this)" placeholder="Ex: 100,000" class="w-full p-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 outline-none">
+                        </div>
+                        <div>
+                            <label class="text-xs font-bold text-slate-500 uppercase mb-1 block">Descarte (kg)</label>
+                            <input type="text" id="discardQuantity" oninput="formatDecimalInput(this)" required placeholder="Ex: 15,500" class="w-full p-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 outline-none">
+                        </div>
                     </div>
 
                     <div>
@@ -308,6 +314,7 @@
                 const reportId = generateReportID(discardData[0]);
                 
                 partnerDisplay = ` - <span class="text-xl font-black text-white">${discardData[0].partnerName}</span>`; 
+                
                 if (discardData[0].addedAt) {
                     addedAtDisplay = `<br><span class="text-red-300 font-bold inline-block pt-1">Data do Descarte: ${discardData[0].addedAt}</span><br><span class="mt-2 inline-block text-brand-100 text-xs font-mono tracking-widest">ID: ${reportId}</span>`;
                 }
@@ -455,6 +462,7 @@
                 partnerName: document.getElementById('partnerName').value.trim(), 
                 culture: document.getElementById('culture').value.trim(), 
                 quantity: document.getElementById('discardQuantity').value, 
+                productionQuantity: document.getElementById('productionQuantity').value,
                 reason: finalReason, 
                 photos: [...currentPhotos],
                 addedAt: addedAt,
@@ -468,6 +476,7 @@
         function clearBlockForm() {
             document.getElementById('culture').value = ''; updateDynamicFields();
             document.getElementById('discardQuantity').value = ''; document.getElementById('customReason').value = '';
+            document.getElementById('productionQuantity').value = '';
             toggleCustomReason(); currentPhotos = []; renderPhotoPreviews();
             editingIndex = -1;
             const btn = document.getElementById('submitBtn');
@@ -483,6 +492,7 @@
             if (!isCustomReason) { reasonSelect.value = item.reason; toggleCustomReason(); } 
             else { reasonSelect.value = 'Outros'; toggleCustomReason(); document.getElementById('customReason').value = item.reason; }
             document.getElementById('discardQuantity').value = item.quantity;
+            document.getElementById('productionQuantity').value = item.productionQuantity || '';
             currentPhotos = item.photos ? [...item.photos] : []; renderPhotoPreviews();
             const btn = document.getElementById('submitBtn'); btn.innerHTML = '<i data-lucide="save" class="w-4 h-4"></i> <span>Salvar</span>'; btn.classList.replace('bg-slate-800', 'bg-blue-600');
             lucide.createIcons();
@@ -500,8 +510,9 @@
             const list = document.getElementById('itemsList');
             list.innerHTML = discardData.length ? '' : '<li class="text-center text-slate-400 italic py-2">Nenhum registro.</li>';
             discardData.forEach((item, index) => {
+                const prodText = item.productionQuantity ? ` | Prod: ${item.productionQuantity} kg` : '';
                 list.innerHTML += `<li class="flex justify-between items-center p-3 rounded border bg-slate-50">
-                    <div class="flex flex-col"><span class="font-bold text-sm">${item.partnerName}</span><span class="text-xs">${item.culture} - ${item.quantity} kg</span></div>
+                    <div class="flex flex-col"><span class="font-bold text-sm">${item.partnerName}</span><span class="text-xs">${item.culture} - Desc: ${item.quantity} kg${prodText}</span></div>
                     <div class="flex items-center"><button onclick="editItem(${index})" class="text-blue-500 mr-2"><i data-lucide="pencil" class="w-4 h-4"></i></button><button onclick="removeItem(${index})" class="text-red-500"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div>
                 </li>`;
             });
@@ -602,7 +613,14 @@
                 const dataDescarte = dataAtual.toLocaleDateString('pt-BR');
                 const horaDescarte = dataAtual.toLocaleTimeString('pt-BR');
                 
-                const shareText = `\`Registro de Descarte\`\n\n*ID:* ${reportId}\n\n*Parceiro:* ${partnerNameForFile}\n\n*Cultura:* ${discardData[0].culture}\n\n*Data da Colheita:* ${reportDate.toLocaleDateString('pt-BR')}\n\n*Data do Descarte:* ${dataDescarte} às ${horaDescarte}\n\n*Motivo:* ${discardData[0].reason}\n\n*Total:* ${formatSmart(discardData.reduce((acc, d) => acc + parsePTBRNumber(d.quantity), 0))} kg`;
+                const totalDiscard = discardData.reduce((acc, d) => acc + parsePTBRNumber(d.quantity), 0);
+                const totalDiscardFormatted = formatSmart(totalDiscard);
+                const production = discardData[0].productionQuantity ? parsePTBRNumber(discardData[0].productionQuantity) : 0;
+                
+                const prodShareText = production > 0 ? `\n\n*Produção:* ${formatSmart(production)} kg` : '';
+                const percentText = production > 0 ? `\n\n*Percentual Descartado:* ${((totalDiscard / production) * 100).toLocaleString('pt-BR', {maximumFractionDigits: 1})}%` : '';
+                
+                const shareText = `\`Registro de Descarte\`\n\n*ID:* ${reportId}${prodShareText}\n\n*Parceiro:* ${partnerNameForFile}\n\n*Cultura:* ${discardData[0].culture}\n\n*Data da Colheita:* ${reportDate.toLocaleDateString('pt-BR')}\n\n*Data do Descarte:* ${dataDescarte} às ${horaDescarte}\n\n*Descarte:* ${totalDiscardFormatted} kg${percentText}\n\n*Motivo:* ${discardData[0].reason}`;
                 
                 canvas.toBlob(async (blob) => {
                     const file = new File([blob], filename, { type: 'image/png' });
