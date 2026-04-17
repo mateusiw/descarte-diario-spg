@@ -421,6 +421,8 @@
                 prodInput.classList.remove('bg-brand-50', 'text-slate-700');
             } else {
                 prodInput.disabled = false;
+                prodInput.readOnly = false;
+                prodInput.classList.remove('cursor-not-allowed');
                 prodInput.placeholder = "Ex: 100,000";
                 prodInput.classList.remove('bg-slate-100', 'text-slate-400');
                 prodInput.classList.add('bg-brand-50', 'text-slate-700');
@@ -469,6 +471,8 @@
                 prodInput.placeholder = "Buscando...";
                 prodInput.value = "";
                 prodInput.disabled = true;
+                prodInput.readOnly = false;
+                prodInput.classList.remove('cursor-not-allowed');
 
                 // Mostra a tela de carregamento congelando a página
                 loadingOverlay.classList.remove('hidden');
@@ -528,6 +532,10 @@
                         const formattedProduction = formatSmart(data.production);
                         prodInput.value = formattedProduction;
                         prodInput.placeholder = "Produção encontrada";
+                        
+                        // TRAVA O CAMPO PARA O USUÁRIO NÃO APAGAR SEM QUERER
+                        prodInput.readOnly = true;
+                        prodInput.classList.add('cursor-not-allowed');
                         
                         // MENSAGEM DE SUCESSO PERSONALIZADA
                         showMessageModal(
@@ -658,7 +666,11 @@
         function clearBlockForm() {
             document.getElementById('culture').value = ''; updateDynamicFields();
             document.getElementById('discardQuantity').value = ''; document.getElementById('customReason').value = '';
-            document.getElementById('productionQuantity').value = '';
+            
+            const prodInput = document.getElementById('productionQuantity');
+            prodInput.value = '';
+            prodInput.readOnly = false;
+            prodInput.classList.remove('cursor-not-allowed');
             
             // Re-habilita a caixinha ao limpar
             setCheckboxEnabled(true);
