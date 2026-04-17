@@ -231,7 +231,7 @@
     </div>
 
     <!-- MODAL DE MENSAGEM -->
-    <div id="messageModal" class="fixed inset-0 bg-black/50 z-50 hidden flex justify-center items-center backdrop-blur-sm transition-opacity duration-300">
+    <div id="messageModal" class="fixed inset-0 bg-black/50 z-[70] hidden flex justify-center items-center backdrop-blur-sm transition-opacity duration-300">
         <div class="bg-white rounded-xl shadow-2xl p-6 w-11/12 max-w-sm transform transition-all scale-100 text-center">
             <div id="msgIconContainer" class="mx-auto flex items-center justify-center h-12 w-12 rounded-full mb-4"></div>
             <h3 id="msgTitle" class="text-lg font-bold text-slate-800"></h3>
@@ -250,6 +250,7 @@
         let currentPhotos = [];
         let isSending = false;
         let isConsulting = false;
+        let fetchAbortController = null;
 
         // --- URLs DOS APPS SCRIPTS (SEPARADOS) ---
         // 1. Script para Consultar Produção (GET)
@@ -452,7 +453,13 @@
             const loadingOverlay = document.getElementById('loadingOverlay');
             const sendBtn = document.getElementById('sendBtn');
 
-            if (dateInput && cultureVal && partnerVal && editingIndex === -1) {
+            if (dateInput && cultureVal && partnerVal) {
+                // Cancela busca anterior se o usuário clicar/mudar muito rápido
+                if (fetchAbortController) {
+                    fetchAbortController.abort();
+                }
+                fetchAbortController = new AbortController();
+                
                 isConsulting = true;
                 if(sendBtn) sendBtn.disabled = true;
                 
@@ -469,7 +476,15 @@
 
                 try {
                     const url = `${URL_PRODUCAO}?action=getProduction&date=${encodeURIComponent(dateBR)}&culture=${encodeURIComponent(cultureVal)}&partner=${encodeURIComponent(partnerVal)}`;
-                    const response = await fetch(url);
+                    
+                    // Trava de 10 segundos para impedir loop infinito ou congelamento se a internet oscilar
+                    const timeoutId = setTimeout(() => {
+                        if (fetchAbortController) fetchAbortController.abort();
+                    }, 10000);
+
+                    const response = await fetch(url, { signal: fetchAbortController.signal });
+                    clearTimeout(timeoutId);
+                    
                     const textResponse = await response.text();
                     
                     let data;
@@ -527,20 +542,31 @@
                         prodInput.placeholder = "Não encontrado na planilha";
                     }
                 } catch (error) {
+                    if (error.name === 'AbortError') {
+                        prodInput.placeholder = "Tempo excedido";
+                    } else {
+                        prodInput.placeholder = "Ex: 100,000";
+                    }
                     setCheckboxEnabled(true);
                     prodInput.value = '';
-                    prodInput.placeholder = "Ex: 100,000";
                 } finally {
-                    if (!document.getElementById('productionInProgress').checked) {
-                        prodInput.disabled = false;
+                    try {
+                        if (!document.getElementById('productionInProgress').checked) {
+                            prodInput.disabled = false;
+                        }
+                        
+                        // Esconde a tela de carregamento liberando a página de qualquer forma
+                        loadingOverlay.classList.add('hidden');
+                        loadingOverlay.classList.remove('flex');
+                        
+                        isConsulting = false;
+                        if(sendBtn) sendBtn.disabled = false;
+                    } catch (e) {
+                        loadingOverlay.classList.add('hidden');
+                        loadingOverlay.classList.remove('flex');
+                        isConsulting = false;
+                        if(sendBtn) sendBtn.disabled = false;
                     }
-                    
-                    // Esconde a tela de carregamento liberando a página
-                    loadingOverlay.classList.add('hidden');
-                    loadingOverlay.classList.remove('flex');
-                    
-                    isConsulting = false;
-                    if(sendBtn) sendBtn.disabled = false;
                 }
             }
         }
@@ -664,6 +690,10 @@
             currentPhotos = item.photos ? [...item.photos] : []; renderPhotoPreviews();
             const btn = document.getElementById('submitBtn'); btn.innerHTML = '<i data-lucide="save" class="w-4 h-4"></i> <span>Salvar</span>'; btn.classList.replace('bg-slate-800', 'bg-blue-600');
             lucide.createIcons();
+            
+            // CHAMA A CONSULTA AUTOMATICAMENTE AO EDITAR
+            // Assim ele traz o valor atualizado da planilha para a data que estiver selecionada no topo!
+            checkProductionData();
         }
 
         function removeItem(index) { if (editingIndex === index) clearBlockForm(); else if (editingIndex > index) editingIndex--; discardData.splice(index, 1); saveData(); renderReport(); renderList(); }
