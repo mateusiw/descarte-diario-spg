@@ -749,6 +749,7 @@
                 const images = element.querySelectorAll('img');
                 await Promise.all(Array.from(images).map(img => { if (img.complete) return Promise.resolve(); return new Promise(resolve => { img.onload = resolve; img.onerror = resolve; }); }));
                 
+                // GERAÇÃO DA IMAGEM EM ALTA QUALIDADE (SCALE 5)
                 const canvas = await html2canvas(element, { 
                     scale: 5, 
                     useCORS: true, 
@@ -760,6 +761,7 @@
                         if (content) { content.style.height = 'auto'; content.style.overflow = 'visible'; content.style.maxHeight = 'none'; }
                     }
                 });
+
                 const reportDate = getSelectedDate();
                 const dateStr = reportDate.toLocaleDateString('pt-BR').replace(/\//g, '-');
                 const weekNum = getWeekNumber(reportDate);
@@ -782,14 +784,12 @@
                     }
                 });
                 
-                await sendDataToGoogleSheets({ 
+                // ENVIA PARA A PLANILHA EM SEGUNDO PLANO (NÃO BLOQUEIA MAIS A TELA)
+                sendDataToGoogleSheets({ 
                     date: reportDate.toLocaleDateString('pt-BR'), 
                     reportId: reportId,
                     items: itemsToSync 
                 });
-
-                // Pequena pausa para garantir que o envio ocorreu em segundo plano antes do App compartilhar e sair da tela
-                await new Promise(resolve => setTimeout(resolve, 800));
 
                 const weekday = reportDate.toLocaleDateString('pt-BR', { weekday: 'long' }).charAt(0).toUpperCase() + reportDate.toLocaleDateString('pt-BR', { weekday: 'long' }).slice(1);
                 const filename = `Descarte - ${partnerNameForFile} - ${weekday} ${dateStr} Sem ${weekNum}.png`;
@@ -818,6 +818,7 @@
                 const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
                 const file = new File([blob], filename, { type: 'image/png' });
                 
+                // COMPARTILHAMENTO IMEDIATO (Velocidade restaurada)
                 if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) { 
                     try {
                         await navigator.share({ files: [file], title: filename, text: shareText }); 
@@ -839,16 +840,18 @@
 
         function downloadFile(uri, name) { const link = document.createElement('a'); link.href = uri; link.download = name; document.body.appendChild(link); link.click(); document.body.removeChild(link); }
         
-        async function sendDataToGoogleSheets(payload) {
+        function sendDataToGoogleSheets(payload) {
             if (!URL_DESCARTE) return;
             try { 
-                await fetch(URL_DESCARTE, { 
+                // Uso do "keepalive" para garantir que o navegador entregue os dados para o Google mesmo se o app for minimizado
+                fetch(URL_DESCARTE, { 
                     method: 'POST', 
                     mode: 'no-cors', 
+                    keepalive: true, 
                     headers: { 'Content-Type': 'text/plain;charset=utf-8' }, 
                     body: JSON.stringify(payload) 
                 }); 
-                console.log("Comando de envio para a planilha de descarte disparado com sucesso.");
+                console.log("Comando de envio para a planilha disparado em segundo plano.");
             } catch (err) {
                 console.error("Erro ao enviar para a planilha de descarte:", err);
             }
