@@ -486,10 +486,10 @@
                 try {
                     const url = `${URL_PRODUCAO}?action=getProduction&date=${encodeURIComponent(dateBR)}&culture=${encodeURIComponent(cultureVal)}&partner=${encodeURIComponent(partnerVal)}`;
                     
-                    // Trava de 10 segundos para impedir loop infinito ou congelamento se a internet oscilar
+                    // Trava de 25 segundos para impedir loop infinito, mas dar tempo do Google "acordar" na 1ª consulta do dia
                     const timeoutId = setTimeout(() => {
                         if (fetchAbortController) fetchAbortController.abort();
-                    }, 10000);
+                    }, 25000);
 
                     const response = await fetch(url, { signal: fetchAbortController.signal });
                     clearTimeout(timeoutId);
