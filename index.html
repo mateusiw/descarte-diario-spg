@@ -447,7 +447,7 @@
             }
         }
 
-        async function checkProductionData() {
+        async function checkProductionData(isBackground = false) {
             const dateInput = document.getElementById('reportDate').value;
             const cultureVal = document.getElementById('culture').value;
             const partnerVal = document.getElementById('partnerName').value;
@@ -468,15 +468,20 @@
                 const parts = dateInput.split('-');
                 const dateBR = `${parts[2]}/${parts[1]}/${parts[0]}`; 
                 
-                prodInput.placeholder = "Buscando...";
-                prodInput.value = "";
                 prodInput.disabled = true;
                 prodInput.readOnly = false;
                 prodInput.classList.remove('cursor-not-allowed');
 
-                // Mostra a tela de carregamento congelando a página
-                loadingOverlay.classList.remove('hidden');
-                loadingOverlay.classList.add('flex');
+                if (!isBackground) {
+                    prodInput.placeholder = "Buscando...";
+                    prodInput.value = "";
+                    // Mostra a tela de carregamento congelando a página
+                    loadingOverlay.classList.remove('hidden');
+                    loadingOverlay.classList.add('flex');
+                } else {
+                    // Mantém o valor se houver, mas indica que está atualizando
+                    if (!prodInput.value) prodInput.placeholder = "Atualizando...";
+                }
 
                 try {
                     const url = `${URL_PRODUCAO}?action=getProduction&date=${encodeURIComponent(dateBR)}&culture=${encodeURIComponent(cultureVal)}&partner=${encodeURIComponent(partnerVal)}`;
@@ -496,76 +501,78 @@
                         data = JSON.parse(textResponse);
                     } catch (e) {
                         setCheckboxEnabled(true);
-                        prodInput.placeholder = "Ex: 100,000";
+                        if (!isBackground) prodInput.placeholder = "Ex: 100,000";
                         return;
                     }
                     
                     if (data && data.error === "Debug") {
                         setCheckboxEnabled(true);
-                        // MARCA AUTOMATICAMENTE QUANDO NÃO ENCONTRAR NA PLANILHA
                         toggleProductionInProgress(true);
                         
-                        // MENSAGEM PERSONALIZADA (NÃO ENCONTRADO)
-                        showMessageModal(
-                            'Produção Não Encontrada', 
-                            'Não encontramos nenhuma entrega registrada para este parceiro na data informada.\n\nPor favor, verifique se a data selecionada está correta.\n\nCaso o parceiro tenha entregado recentemente, você precisa levar o caderno e pedir para o responsável preencher a produção na planilha.\n\nA opção "Produção em Andamento" foi marcada automaticamente para você poder continuar registrando o descarte normalmente.', 
-                            'info'
-                        );
-                        
+                        if (!isBackground) {
+                            showMessageModal(
+                                'Produção Não Encontrada', 
+                                'Não encontramos nenhuma entrega registrada para este parceiro na data informada.\n\nPor favor, verifique se a data selecionada está correta.\n\nCaso o parceiro tenha entregado recentemente, você precisa levar o caderno e pedir para o responsável preencher a produção na planilha.\n\nA opção "Produção em Andamento" foi marcada automaticamente para você poder continuar registrando o descarte normalmente.', 
+                                'info'
+                            );
+                        }
                     } else if (data && (data.production === "" || data.production === 0 || data.production === "0")) {
                         setCheckboxEnabled(true);
                         toggleProductionInProgress(true);
                         
-                        // MENSAGEM DE ENTREGAS EM ANDAMENTO (VAZIO/ZERO)
-                        showMessageModal(
-                            'Entregas em Andamento', 
-                            'O registro deste parceiro foi localizado na planilha, mas o peso total da produção ainda está vazio ou zerado.\n\nVocê pode continuar registrando o descarte normalmente. O campo da produção ficará com o status de "Entregas em Andamento" aguardando o fechamento do lote.', 
-                            'info'
-                        );
-                        
+                        if (!isBackground) {
+                            showMessageModal(
+                                'Entregas em Andamento', 
+                                'O registro deste parceiro foi localizado na planilha, mas o peso total da produção ainda está vazio ou zerado.\n\nVocê pode continuar registrando o descarte normalmente. O campo da produção ficará com o status de "Entregas em Andamento" aguardando o fechamento do lote.', 
+                                'info'
+                            );
+                        }
                     } else if (data && data.production !== null && data.production !== undefined) {
-                        // DESMARCA E BLOQUEIA A CAIXA "EM ANDAMENTO" SE ACHAR PRODUÇÃO
                         document.getElementById('productionInProgress').checked = false;
-                        toggleProductionInProgress(); // Restaura o campo input ao normal
-                        setCheckboxEnabled(false); // Bloqueia a caixinha
+                        toggleProductionInProgress(); 
+                        setCheckboxEnabled(false); 
                         
                         const formattedProduction = formatSmart(data.production);
                         prodInput.value = formattedProduction;
                         prodInput.placeholder = "Produção encontrada";
                         
-                        // TRAVA O CAMPO PARA O USUÁRIO NÃO APAGAR SEM QUERER
                         prodInput.readOnly = true;
                         prodInput.classList.add('cursor-not-allowed');
                         
-                        // MENSAGEM DE SUCESSO PERSONALIZADA
-                        showMessageModal(
-                            'Produção Localizada!', 
-                            `A produção foi encontrada com sucesso!\n\nData da Colheita: ${dateBR}\nParceiro: ${partnerVal}\nCultura: ${cultureVal}\nTotal: ${formattedProduction} kg`, 
-                            'success'
-                        );
-                        
+                        if (!isBackground) {
+                            showMessageModal(
+                                'Produção Localizada!', 
+                                `A produção foi encontrada com sucesso!\n\nData da Colheita: ${dateBR}\nParceiro: ${partnerVal}\nCultura: ${cultureVal}\nTotal: ${formattedProduction} kg`, 
+                                'success'
+                            );
+                        }
                     } else {
                         setCheckboxEnabled(true);
-                        prodInput.value = '';
-                        prodInput.placeholder = "Não encontrado na planilha";
+                        if (!isBackground) {
+                            prodInput.value = '';
+                            prodInput.placeholder = "Não encontrado na planilha";
+                        }
                     }
                 } catch (error) {
-                    if (error.name === 'AbortError') {
-                        prodInput.placeholder = "Tempo excedido";
-                    } else {
-                        prodInput.placeholder = "Ex: 100,000";
+                    if (!isBackground) {
+                        if (error.name === 'AbortError') {
+                            prodInput.placeholder = "Tempo excedido";
+                        } else {
+                            prodInput.placeholder = "Ex: 100,000";
+                        }
+                        setCheckboxEnabled(true);
+                        prodInput.value = '';
                     }
-                    setCheckboxEnabled(true);
-                    prodInput.value = '';
                 } finally {
                     try {
                         if (!document.getElementById('productionInProgress').checked) {
                             prodInput.disabled = false;
                         }
                         
-                        // Esconde a tela de carregamento liberando a página de qualquer forma
-                        loadingOverlay.classList.add('hidden');
-                        loadingOverlay.classList.remove('flex');
+                        if (!isBackground) {
+                            loadingOverlay.classList.add('hidden');
+                            loadingOverlay.classList.remove('flex');
+                        }
                         
                         isConsulting = false;
                         if(sendBtn) sendBtn.disabled = false;
@@ -909,6 +916,38 @@
             modal.classList.remove('hidden'); lucide.createIcons();
         }
         function hideMessageModal() { document.getElementById('messageModal').classList.add('hidden'); }
+
+        // --- SISTEMA DE ATUALIZAÇÃO POR INATIVIDADE ---
+        let lastActivityTime = Date.now();
+        const INACTIVITY_LIMIT = 2 * 60 * 1000; // 2 minutos em milissegundos
+
+        function handleUserActivity() {
+            const now = Date.now();
+            if (now - lastActivityTime > INACTIVITY_LIMIT) {
+                // Voltou de inatividade! Se os campos estiverem preenchidos, faz uma consulta silenciosa.
+                const dateInput = document.getElementById('reportDate')?.value;
+                const cultureVal = document.getElementById('culture')?.value;
+                const partnerVal = document.getElementById('partnerName')?.value;
+                
+                if (dateInput && cultureVal && partnerVal && !isConsulting) {
+                    console.log("Retorno de inatividade detectado. Realizando consulta em segundo plano para agilizar...");
+                    checkProductionData(true); // O 'true' faz a consulta silenciosa, sem bloquear a tela
+                }
+            }
+            lastActivityTime = now;
+        }
+
+        // Monitores de interação do usuário
+        ['touchstart', 'mousemove', 'keydown', 'scroll', 'click'].forEach(evt => {
+            window.addEventListener(evt, handleUserActivity, { passive: true });
+        });
+
+        // Caso o usuário troque de aba ou desligue a tela do celular e volte
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') {
+                handleUserActivity();
+            }
+        });
     </script>
 </body>
 </html>
