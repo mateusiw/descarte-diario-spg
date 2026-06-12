@@ -274,7 +274,7 @@
         }
 
         function getBrandLogoDataUri() {
-            return 'https://i.imgur.com/cz4el5i.png';
+            return 'https://i.imgur.com/qKIXVgh.png';
         }
 
         function applyBrandAssets() {
@@ -489,7 +489,7 @@
                 prodInput.disabled = false;
                 prodInput.readOnly = false;
                 prodInput.classList.remove('cursor-not-allowed');
-                prodInput.placeholder = "Ex: 100,000";
+                prodInput.placeholder = "Ex: 10,5";
                 prodInput.classList.remove('bg-slate-100', 'text-slate-400');
                 prodInput.classList.add('bg-brand-50', 'text-slate-700');
             }
@@ -657,7 +657,7 @@
             if (!files.length) return;
             if (currentPhotos.length + files.length > 5) { showMessageModal('Limite Excedido', 'Você pode enviar no máximo 5 fotos por registro.', 'error'); return; }
             event.target.disabled = true;
-            for (const file of files) { if (!file.type.startsWith('image/')) continue; const base64 = await processImage(file); currentPhotos.push(base64); }
+            for (const file of files) { const base64 = await processImage(file); currentPhotos.push(base64); }
             event.target.value = ''; event.target.disabled = false;
             renderPhotoPreviews();
         }
