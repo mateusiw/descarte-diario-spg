@@ -655,10 +655,28 @@
         async function handleImageUpload(event) {
             const files = Array.from(event.target.files);
             if (!files.length) return;
-            if (currentPhotos.length + files.length > 5) { showMessageModal('Limite Excedido', 'Você pode enviar no máximo 5 fotos por registro.', 'error'); return; }
-            event.target.disabled = true;
-            for (const file of files) { const base64 = await processImage(file); currentPhotos.push(base64); }
-            event.target.value = ''; event.target.disabled = false;
+
+            if (currentPhotos.length + files.length > 5) {
+                showMessageModal('Limite Excedido', 'Você pode enviar no máximo 5 fotos por registro.', 'error');
+                event.target.value = '';
+                return;
+            }
+
+            const galleryInput = document.getElementById('discardPhotoGallery');
+            const cameraInput = document.getElementById('discardPhotoCamera');
+            galleryInput.disabled = true;
+            cameraInput.disabled = true;
+
+            for (const file of files) {
+                const base64 = await processImage(file);
+                currentPhotos.push(base64);
+            }
+
+            galleryInput.value = '';
+            cameraInput.value = '';
+            galleryInput.disabled = false;
+            cameraInput.disabled = false;
+
             renderPhotoPreviews();
         }
 
