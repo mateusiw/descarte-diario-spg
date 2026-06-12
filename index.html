@@ -123,7 +123,7 @@
                     <div class="grid grid-cols-2 gap-3">
                         <div class="flex flex-col gap-1.5">
                             <label class="text-[11px] font-bold text-slate-500 uppercase leading-tight">Produção (kg)</label>
-                            <input type="text" id="productionQuantity" oninput="formatDecimalInput(this)" placeholder="Ex: 100,000" class="w-full p-3 border border-slate-300 rounded-xl text-base focus:ring-2 focus:ring-brand-500 outline-none bg-brand-50 font-bold transition-colors">
+                            <input type="text" id="productionQuantity" oninput="formatDecimalInput(this)" placeholder="Ex: 10,5" class="w-full p-3 border border-slate-300 rounded-xl text-base focus:ring-2 focus:ring-brand-500 outline-none bg-brand-50 font-bold transition-colors">
                             <label id="productionInProgressLabel" class="flex items-center gap-2 mt-1 text-xs font-semibold text-slate-600 cursor-pointer select-none py-2 transition-opacity">
                                 <input type="checkbox" id="productionInProgress" onchange="toggleProductionInProgress()" class="w-4 h-4 text-brand-500 rounded border-slate-300 focus:ring-brand-500 disabled:cursor-not-allowed flex-shrink-0">
                                 Em Andamento
@@ -131,7 +131,7 @@
                         </div>
                         <div class="flex flex-col gap-1.5">
                             <label class="text-[11px] font-bold text-slate-500 uppercase leading-tight">Descarte (kg)</label>
-                            <input type="text" id="discardQuantity" oninput="formatDecimalInput(this)" required placeholder="Ex: 15,500" class="w-full p-3 border border-slate-300 rounded-xl text-base focus:ring-2 focus:ring-brand-500 outline-none">
+                            <input type="text" id="discardQuantity" oninput="formatDecimalInput(this)" required placeholder="Ex: 15,5" class="w-full p-3 border border-slate-300 rounded-xl text-base focus:ring-2 focus:ring-brand-500 outline-none">
                         </div>
                     </div>
 
@@ -153,17 +153,17 @@
                             <span id="photoCounter" class="text-[10px] text-brand-600 font-bold bg-brand-50 px-2 py-0.5 rounded-full">0/5</span>
                         </div>
                         <div class="grid grid-cols-2 gap-2">
-                            <label for="discardPhotoCamera" class="flex flex-col items-center justify-center gap-1.5 p-3.5 border-2 border-dashed border-slate-300 rounded-xl text-xs font-semibold text-slate-500 hover:border-brand-400 hover:text-brand-600 cursor-pointer transition-colors bg-slate-50 active:bg-slate-100 select-none text-center">
+                            <button type="button" onclick="document.getElementById('discardPhotoCamera').click()" class="flex flex-col items-center justify-center gap-1.5 p-3.5 border-2 border-dashed border-slate-300 rounded-xl text-xs font-semibold text-slate-500 hover:border-brand-400 hover:text-brand-600 transition-colors bg-slate-50 active:bg-slate-100 select-none text-center">
                                 <i data-lucide="camera" class="w-6 h-6 flex-shrink-0"></i>
                                 <span>Câmera</span>
-                            </label>
-                            <label for="discardPhotoGallery" class="flex flex-col items-center justify-center gap-1.5 p-3.5 border-2 border-dashed border-slate-300 rounded-xl text-xs font-semibold text-slate-500 hover:border-brand-400 hover:text-brand-600 cursor-pointer transition-colors bg-slate-50 active:bg-slate-100 select-none text-center">
+                            </button>
+                            <button type="button" onclick="document.getElementById('discardPhotoGallery').click()" class="flex flex-col items-center justify-center gap-1.5 p-3.5 border-2 border-dashed border-slate-300 rounded-xl text-xs font-semibold text-slate-500 hover:border-brand-400 hover:text-brand-600 transition-colors bg-slate-50 active:bg-slate-100 select-none text-center">
                                 <i data-lucide="image-plus" class="w-6 h-6 flex-shrink-0"></i>
                                 <span>Galeria</span>
-                            </label>
+                            </button>
                         </div>
-                        <input type="file" id="discardPhotoCamera" accept="image/*" capture="environment" onchange="handleImageUpload(event)" class="sr-only">
-                        <input type="file" id="discardPhotoGallery" accept="image/*" multiple onchange="handleImageUpload(event)" class="sr-only">
+                        <input type="file" id="discardPhotoCamera" accept="image/*" capture="environment" onchange="handleImageUpload(event)" class="hidden">
+                        <input type="file" id="discardPhotoGallery" accept="image/*" multiple onchange="handleImageUpload(event)" class="hidden">
                         <div id="photoPreviewContainer" class="hidden grid grid-cols-3 sm:grid-cols-5 gap-2 animate-fade-in-down"></div>
                     </div>
 
@@ -274,7 +274,7 @@
         }
 
         function getBrandLogoDataUri() {
-            return 'https://i.imgur.com/Tl4VXah.png';
+            return 'https://i.imgur.com/cz4el5i.png';
         }
 
         function applyBrandAssets() {
