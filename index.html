@@ -1029,21 +1029,36 @@
 
         function downloadFile(uri, name) { const link = document.createElement('a'); link.href = uri; link.download = name; document.body.appendChild(link); link.click(); document.body.removeChild(link); }
         
-        function sendDataToGoogleSheets(payload) {
+        function sendDataToGoogleSheets(payload, retriesLeft = 2) {
             if (!URL_DESCARTE) return;
-            try { 
-                // Uso do "keepalive" para garantir que o navegador entregue os dados para o Google mesmo se o app for minimizado
-                fetch(URL_DESCARTE, { 
-                    method: 'POST', 
-                    mode: 'no-cors', 
-                    keepalive: true, 
-                    headers: { 'Content-Type': 'text/plain;charset=utf-8' }, 
-                    body: JSON.stringify(payload) 
-                }); 
-                console.log("Comando de envio para a planilha disparado em segundo plano.");
-            } catch (err) {
-                console.error("Erro ao enviar para a planilha de descarte:", err);
-            }
+            // Uso do "keepalive" para garantir que o navegador entregue os dados para o Google mesmo se o app for minimizado.
+            // O fetch não é bloqueante (não trava o compartilhamento no WhatsApp), mas agora acompanhamos o resultado:
+            // com conexão fraca, uma falha real de rede (offline, timeout, DNS) rejeita a Promise e cai no catch abaixo,
+            // onde tentamos reenviar automaticamente antes de avisar o usuário. Reenviar é seguro: o reportId é sempre
+            // o mesmo para o mesmo registro, e o Apps Script (doPost) ignora reportId já salvo, evitando linha duplicada.
+            fetch(URL_DESCARTE, {
+                method: 'POST',
+                mode: 'no-cors',
+                keepalive: true,
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify(payload)
+            })
+            .then(() => {
+                console.log("Envio para a planilha confirmado pela rede.");
+            })
+            .catch((err) => {
+                console.error("Falha ao enviar para a planilha de descarte:", err);
+                if (retriesLeft > 0) {
+                    console.log(`Tentando reenviar para a planilha em 2s (tentativas restantes: ${retriesLeft})...`);
+                    setTimeout(() => sendDataToGoogleSheets(payload, retriesLeft - 1), 2000);
+                } else {
+                    showMessageModal(
+                        'Falha ao Salvar na Planilha',
+                        'O relatório foi compartilhado, mas não foi possível confirmar o envio dos dados para a planilha devido a uma conexão instável.\n\nAssim que tiver um sinal melhor, toque novamente em "Enviar para o WhatsApp" e confirme para tentar salvar de novo — o sistema não cria linhas duplicadas mesmo reenviando o mesmo registro.',
+                        'error'
+                    );
+                }
+            });
         }
 
         function showMessageModal(title, message, type) {
@@ -1088,6 +1103,26 @@
                 handleUserActivity();
             }
         });
+
+        // --- CONSULTA AUTOMÁTICA PERIÓDICA (a cada 10 minutos) ---
+        // Consulta a planilha sozinho em segundo plano, sem precisar que o usuário clique,
+        // para detectar assim que a produção do parceiro for lançada.
+        const AUTO_REFRESH_INTERVAL = 10 * 60 * 1000; // 10 minutos
+
+        setInterval(() => {
+            const dateInput = document.getElementById('reportDate')?.value;
+            const cultureVal = document.getElementById('culture')?.value;
+            const partnerVal = document.getElementById('partnerName')?.value;
+            const productionLocked = document.getElementById('productionQuantity')?.readOnly;
+
+            // Só consulta sozinho se os campos estiverem preenchidos, a produção ainda
+            // não tiver sido localizada (campo travado = já encontrada) e não houver
+            // outra consulta em andamento no momento.
+            if (dateInput && cultureVal && partnerVal && !productionLocked && !isConsulting) {
+                console.log("Verificação automática (10 min): consultando produção em segundo plano...");
+                checkProductionData(true); // 'true' = consulta silenciosa, sem travar a tela
+            }
+        }, AUTO_REFRESH_INTERVAL);
     </script>
 </body>
 </html>
