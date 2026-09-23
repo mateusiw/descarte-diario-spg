@@ -316,12 +316,10 @@
         let isConsulting = false;
         let fetchAbortController = null;
 
-        // --- URLs DOS APPS SCRIPTS (SEPARADOS) ---
-        // 1. Script para Consultar Produção (GET)
-        const URL_PRODUCAO = "https://script.google.com/macros/s/AKfycbzQ2D8GWIXz5isJzTRngub90x_87Myg11vGthmoJJ61SgUDk-GeVEESwPpX2lKG81VtQA/exec";
-        
-        // 2. Script para Enviar o Descarte (POST)
+        // --- URL DO APPS SCRIPT (code_unificado.gs) ---
+        // O mesmo script atende a consulta de produção (GET) e o envio do descarte (POST).
         const URL_DESCARTE = "https://script.google.com/macros/s/AKfycbyPIxMm4DWJdIo3GPwoKAoiZWjejE9I6ySZRJvCDOuEldNr1g_yVkeDlb265DiYgt2h/exec";
+        const URL_PRODUCAO = URL_DESCARTE;
 
         // --- RELAÇÃO CULTURAS x PARCEIROS ---
         const partnersData = {
