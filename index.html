@@ -689,12 +689,12 @@
 
             // try/finally: aconteça o que acontecer com as fotos, os botões voltam a
             // funcionar. Antes, uma foto que falhasse deixava Galeria/Câmera travados.
-            let falhas = 0;
+            const falhas = [];
             try {
                 for (const file of files) {
-                    const base64 = await processImage(file);
-                    if (base64) currentPhotos.push(base64);
-                    else falhas++;
+                    const resultado = await processImage(file);
+                    if (resultado.dataUrl) currentPhotos.push(resultado.dataUrl);
+                    else falhas.push(resultado.detalhe);
                 }
             } finally {
                 galleryInput.value = '';
@@ -704,57 +704,121 @@
                 renderPhotoPreviews();
             }
 
-            if (falhas > 0) {
+            if (falhas.length > 0) {
                 showMessageModal(
                     'Foto não carregada',
-                    `${falhas === 1 ? 'Uma foto não pôde ser carregada' : falhas + ' fotos não puderam ser carregadas'}.\n\nSe ela estiver só na nuvem (Google Fotos/iCloud), abra-a na galeria antes para baixar, ou tire a foto pela Câmera.`,
+                    `${falhas.length === 1 ? 'Uma foto não pôde ser carregada' : falhas.length + ' fotos não puderam ser carregadas'}.\n\nTente tirar a foto pela Câmera ou escolher outra foto.\n\nDetalhe: ${falhas.join(' | ')}`,
                     'error'
                 );
             }
         }
 
-        // Reduz a foto para no máx. 1200px e devolve em JPEG (base64).
-        // Devolve null se a foto não puder ser lida (formato não suportado, arquivo
-        // ainda na nuvem, falta de memória...) ou se demorar mais de 20s.
-        function processImage(file) {
-            return new Promise((resolve) => {
-                let url = null;
-                let terminou = false;
-                const concluir = (resultado) => {
-                    if (terminou) return;
-                    terminou = true;
-                    clearTimeout(timer);
-                    if (url) URL.revokeObjectURL(url);
-                    resolve(resultado);
-                };
-                const timer = setTimeout(() => concluir(null), 20000);
+        const FOTO_MAX_LADO = 1200;
+        const FOTO_TIMEOUT_MS = 45000;
 
+        // Reduz a foto para no máx. 1200px e devolve { dataUrl } em JPEG (base64), ou
+        // { detalhe } com o motivo da falha. Tenta vários jeitos de ler a imagem, porque
+        // cada celular/navegador falha num ponto diferente (HEIC, fotos enormes de 50MP+,
+        // pouca memória...).
+        async function processImage(file) {
+            const info = `${file.type || 'tipo desconhecido'}, ${(file.size / 1048576).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} MB`;
+            if (!file.size) return { detalhe: `arquivo vazio (${info}) - a foto pode estar só na nuvem` };
+
+            const erros = [];
+            const comTempo = (promessa) => Promise.race([
+                promessa,
+                new Promise((_, rej) => setTimeout(() => rej(new Error('tempo esgotado')), FOTO_TIMEOUT_MS))
+            ]);
+
+            let origem = file;
+            // Samsung/iPhone podem salvar em HEIC/HEIF, que o Chrome não abre: converte antes.
+            if (/hei[cf]/i.test(file.type) || /\.hei[cf]$/i.test(file.name || '')) {
                 try {
-                    // Object URL em vez de FileReader: não carrega a foto inteira em base64
-                    // na memória, o que travava celulares mais simples com fotos grandes.
-                    url = URL.createObjectURL(file);
-                    const img = new Image();
-                    img.onload = function() {
-                        try {
-                            const canvas = document.createElement('canvas');
-                            const MAX_WIDTH = 1200; const MAX_HEIGHT = 1200;
-                            let width = img.width; let height = img.height;
-                            if (width > height) { if (width > MAX_WIDTH) { height *= MAX_WIDTH / width; width = MAX_WIDTH; } }
-                            else { if (height > MAX_HEIGHT) { width *= MAX_HEIGHT / height; height = MAX_HEIGHT; } }
-                            canvas.width = width; canvas.height = height;
-                            const ctx = canvas.getContext('2d'); ctx.drawImage(img, 0, 0, width, height);
-                            const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
-                            concluir(dataUrl && dataUrl.length > 100 ? dataUrl : null);
-                        } catch (err) {
-                            concluir(null);
-                        }
-                    };
-                    img.onerror = () => concluir(null);
-                    img.src = url;
+                    origem = await comTempo(converterHeic(file));
                 } catch (err) {
-                    concluir(null);
+                    erros.push('heic: ' + (err && err.message || err));
                 }
+            }
+
+            const tentativas = [
+                ['bitmap', () => desenharReduzido(async () => {
+                    const bmp = await createImageBitmap(origem);
+                    return { fonte: bmp, largura: bmp.width, altura: bmp.height, liberar: () => bmp.close && bmp.close() };
+                })],
+                ['img', () => desenharReduzido(async () => {
+                    const url = URL.createObjectURL(origem);
+                    try {
+                        const img = await carregarImg(url);
+                        return { fonte: img, largura: img.naturalWidth, altura: img.naturalHeight, liberar: () => URL.revokeObjectURL(url) };
+                    } catch (err) { URL.revokeObjectURL(url); throw err; }
+                })],
+                ['leitor', () => desenharReduzido(async () => {
+                    const img = await carregarImg(await lerComoDataUrl(origem));
+                    return { fonte: img, largura: img.naturalWidth, altura: img.naturalHeight, liberar: () => {} };
+                })]
+            ];
+
+            for (const [nome, tentar] of tentativas) {
+                if (nome === 'bitmap' && typeof createImageBitmap !== 'function') continue;
+                try {
+                    return { dataUrl: await comTempo(tentar()) };
+                } catch (err) {
+                    erros.push(nome + ': ' + (err && err.message || err));
+                }
+            }
+            return { detalhe: `${info} - ${erros.join('; ')}` };
+        }
+
+        async function desenharReduzido(abrir) {
+            const { fonte, largura, altura, liberar } = await abrir();
+            try {
+                if (!largura || !altura) throw new Error('imagem sem tamanho');
+                const escala = Math.min(1, FOTO_MAX_LADO / Math.max(largura, altura));
+                const canvas = document.createElement('canvas');
+                canvas.width = Math.round(largura * escala);
+                canvas.height = Math.round(altura * escala);
+                canvas.getContext('2d').drawImage(fonte, 0, 0, canvas.width, canvas.height);
+                const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+                canvas.width = canvas.height = 0; // libera a memória do canvas no celular
+                if (!dataUrl || dataUrl.length < 100) throw new Error('canvas vazio');
+                return dataUrl;
+            } finally {
+                liberar();
+            }
+        }
+
+        function carregarImg(src) {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                img.onload = () => resolve(img);
+                img.onerror = () => reject(new Error('formato não suportado'));
+                img.src = src;
             });
+        }
+
+        function lerComoDataUrl(blob) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = () => reject(reader.error || new Error('falha ao ler arquivo'));
+                reader.readAsDataURL(blob);
+            });
+        }
+
+        // Carrega o conversor de HEIC só quando precisa (é pesado).
+        let heicLib = null;
+        function converterHeic(file) {
+            if (!heicLib) {
+                heicLib = new Promise((resolve, reject) => {
+                    const s = document.createElement('script');
+                    s.src = 'https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js';
+                    s.onload = () => resolve(window.heic2any);
+                    s.onerror = () => { heicLib = null; reject(new Error('sem internet para converter')); };
+                    document.head.appendChild(s);
+                });
+            }
+            return heicLib.then(heic2any => heic2any({ blob: file, toType: 'image/jpeg', quality: 0.9 }))
+                .then(r => Array.isArray(r) ? r[0] : r);
         }
 
         function renderPhotoPreviews() {
