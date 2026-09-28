@@ -682,6 +682,11 @@
                 return;
             }
 
+            // No Android, a permissão para ler a foto escolhida pode "vencer" poucos
+            // segundos depois (principalmente fotos da galeria/nuvem). Por isso a leitura
+            // de TODAS as fotos começa aqui, na hora, antes de qualquer outro passo.
+            const leituras = files.map(f => lerBytes(f));
+
             const galleryInput = document.getElementById('discardPhotoGallery');
             const cameraInput = document.getElementById('discardPhotoCamera');
             galleryInput.disabled = true;
@@ -690,9 +695,16 @@
             // try/finally: aconteça o que acontecer com as fotos, os botões voltam a
             // funcionar. Antes, uma foto que falhasse deixava Galeria/Câmera travados.
             const falhas = [];
+            let semPermissao = false;
             try {
-                for (const file of files) {
-                    const resultado = await processImage(file);
+                for (let i = 0; i < files.length; i++) {
+                    const lido = await leituras[i];
+                    if (lido.erro) {
+                        if (lido.erro.name === 'NotReadableError' || lido.erro.name === 'NotFoundError') semPermissao = true;
+                        falhas.push(`${files[i].type || 'tipo desconhecido'} - leitura: ${lido.erro.message || lido.erro}`);
+                        continue;
+                    }
+                    const resultado = await processImage(lido.blob);
                     if (resultado.dataUrl) currentPhotos.push(resultado.dataUrl);
                     else falhas.push(resultado.detalhe);
                 }
@@ -704,13 +716,41 @@
                 renderPhotoPreviews();
             }
 
-            if (falhas.length > 0) {
+            if (semPermissao) {
+                showMessageModal(
+                    'Foto não carregada',
+                    `O celular não liberou a leitura ${falhas.length === 1 ? 'dessa foto' : 'de ' + falhas.length + ' fotos'}.\n\nIsso costuma acontecer com fotos que estão no Google Fotos / nuvem, ou que acabaram de ser tiradas e ainda estão sendo salvas.\n\nTente:\n• Tocar em Galeria de novo e escolher a mesma foto\n• Escolher a foto pelo app "Galeria" ou "Arquivos" (não pelo Google Fotos)\n• Ou tirar a foto direto pelo botão Câmera`,
+                    'error'
+                );
+            } else if (falhas.length > 0) {
                 showMessageModal(
                     'Foto não carregada',
                     `${falhas.length === 1 ? 'Uma foto não pôde ser carregada' : falhas.length + ' fotos não puderam ser carregadas'}.\n\nTente tirar a foto pela Câmera ou escolher outra foto.\n\nDetalhe: ${falhas.join(' | ')}`,
                     'error'
                 );
             }
+        }
+
+        // Copia o conteúdo da foto para a memória do app. Depois disso o arquivo original
+        // não é mais tocado, então a permissão do Android não importa mais.
+        // Devolve { blob } ou { erro }.
+        async function lerBytes(file) {
+            try {
+                if (!file.size) throw Object.assign(new Error('arquivo vazio (a foto pode estar só na nuvem)'), { name: 'NotReadableError' });
+                const buffer = file.arrayBuffer ? await file.arrayBuffer() : await lerComoArrayBuffer(file);
+                return { blob: new Blob([buffer], { type: file.type || 'image/jpeg' }), nome: file.name };
+            } catch (err) {
+                return { erro: err };
+            }
+        }
+
+        function lerComoArrayBuffer(blob) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = () => reject(reader.error || new Error('falha ao ler arquivo'));
+                reader.readAsArrayBuffer(blob);
+            });
         }
 
         const FOTO_MAX_LADO = 1200;
