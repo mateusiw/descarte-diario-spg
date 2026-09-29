@@ -142,7 +142,8 @@
                             <option value="">Selecione a cultura primeiro...</option>
                         </select>
                         <div id="customReasonContainer" class="hidden animate-fade-in-down">
-                            <input type="text" id="customReason" placeholder="Especifique o motivo..." class="w-full p-3 border border-brand-300 bg-brand-50 rounded-xl text-base focus:ring-2 focus:ring-brand-500 outline-none text-slate-700">
+                            <input type="text" id="customReason" placeholder="Especifique o motivo..." onblur="aplicarCorretorMotivo()" oninput="document.getElementById('customReasonHint').classList.add('hidden')" class="w-full p-3 border border-brand-300 bg-brand-50 rounded-xl text-base focus:ring-2 focus:ring-brand-500 outline-none text-slate-700">
+                            <p id="customReasonHint" class="hidden mt-1.5 text-xs font-semibold text-brand-700"></p>
                         </div>
                     </div>
 
@@ -446,8 +447,105 @@
             const reasonSelect = document.getElementById('discardReason');
             const customContainer = document.getElementById('customReasonContainer');
             const customInput = document.getElementById('customReason');
-            if (reasonSelect.value === 'Outros') { customContainer.classList.remove('hidden'); customInput.setAttribute('required', 'required'); } 
+            if (reasonSelect.value === 'Outros') { customContainer.classList.remove('hidden'); customInput.setAttribute('required', 'required'); }
             else { customContainer.classList.add('hidden'); customInput.removeAttribute('required'); }
+            document.getElementById('customReasonHint').classList.add('hidden');
+        }
+
+        // --- CORRETOR DO MOTIVO "OUTROS" ---
+        // Corrige erros de digitação comparando cada palavra com as palavras dos motivos
+        // cadastrados (reasonsData) + as extras abaixo. Ex.: "Traçar" -> "Traça",
+        // "pulgao" -> "Pulgão", "lagata" -> "Lagarta".
+        const PALAVRAS_EXTRAS_MOTIVO = [
+            "Traça", "Lagarta", "Pulgão", "Podre", "Mofo", "Mofado", "Bichado", "Murcho", "Murcha",
+            "Queimado", "Queimada", "Quebrado", "Quebrada", "Machucado", "Amassado", "Pisado",
+            "Maduro", "Verde", "Folha", "Folhas", "Talo", "Talos", "Fungo", "Mancha", "Rachadura",
+            "Podridão", "Lodo", "Lodado", "Frio", "Chuva", "Sol", "Doença", "Inseto", "Insetos"
+        ];
+        // Erros que a comparação automática não pegaria (ou pegaria errado): escreva aqui
+        // a forma errada SEM acento e em minúsculas.
+        const CORRECOES_FIXAS_MOTIVO = {
+            "tracar": "Traça", "trasa": "Traça", "trassa": "Traça", "trasar": "Traça", "tracas": "Traças"
+        };
+
+        const semAcento = (s) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+
+        let vocabularioMotivo = null;
+        function getVocabularioMotivo() {
+            if (vocabularioMotivo) return vocabularioMotivo;
+            const todas = [...Object.values(reasonsData).flat(), ...PALAVRAS_EXTRAS_MOTIVO]
+                .join(' ').split(/[\s,]+/).filter(p => p.length >= 4 && p !== 'Outros');
+            vocabularioMotivo = new Map(); // "traca" -> "Traça"
+            todas.forEach(p => {
+                const chave = semAcento(p);
+                if (!vocabularioMotivo.has(chave)) vocabularioMotivo.set(chave, p.charAt(0).toUpperCase() + p.slice(1).toLowerCase());
+            });
+            return vocabularioMotivo;
+        }
+
+        function distanciaEdicao(a, b) {
+            const linha = Array.from({ length: b.length + 1 }, (_, j) => j);
+            for (let i = 1; i <= a.length; i++) {
+                let anterior = linha[0]; linha[0] = i;
+                for (let j = 1; j <= b.length; j++) {
+                    const temp = linha[j];
+                    linha[j] = Math.min(linha[j] + 1, linha[j - 1] + 1, anterior + (a[i - 1] === b[j - 1] ? 0 : 1));
+                    anterior = temp;
+                }
+            }
+            return linha[b.length];
+        }
+
+        function corrigirPalavraMotivo(palavra) {
+            const chave = semAcento(palavra);
+            if (chave.length < 4) return palavra; // "e", "com", "de"... ficam como estão
+            if (CORRECOES_FIXAS_MOTIVO[chave]) return CORRECOES_FIXAS_MOTIVO[chave];
+
+            const vocab = getVocabularioMotivo();
+            if (vocab.has(chave)) return vocab.get(chave); // só faltava acento/maiúscula
+
+            // Aceita até 1 letra errada (2 em palavras longas). Se duas palavras
+            // diferentes empatarem, não mexe: melhor deixar do que trocar errado.
+            const limite = chave.length >= 9 ? 2 : 1;
+            let melhor = null, melhorDist = Infinity, empate = false;
+            vocab.forEach((correta, c) => {
+                if (Math.abs(c.length - chave.length) > limite) return;
+                const d = distanciaEdicao(chave, c);
+                if (d < melhorDist) { melhor = correta; melhorDist = d; empate = false; }
+                else if (d === melhorDist && correta !== melhor) empate = true;
+            });
+            if (!melhor || melhorDist > limite || empate) return palavra;
+            // Só mudou o final (masculino/feminino, singular/plural: "Passada", "escura",
+            // "Deformados")? Então a palavra está certa, não mexe.
+            const radical = (s) => s.replace(/(as|os|a|o|s)$/, '');
+            if (radical(chave) === radical(semAcento(melhor))) return palavra;
+            return melhor;
+        }
+
+        function corrigirMotivo(texto) {
+            const corrigido = texto.trim().replace(/\s+/g, ' ')
+                .replace(/[A-Za-zÀ-ÿ]+/g, (p, pos) => {
+                    const nova = corrigirPalavraMotivo(p);
+                    if (nova === p) return p;
+                    // Mantém minúscula no meio da frase se o usuário escreveu assim.
+                    return (pos > 0 && p.charAt(0) === p.charAt(0).toLowerCase()) ? nova.toLowerCase() : nova;
+                });
+            return corrigido.charAt(0).toUpperCase() + corrigido.slice(1);
+        }
+
+        function aplicarCorretorMotivo() {
+            const input = document.getElementById('customReason');
+            const hint = document.getElementById('customReasonHint');
+            const original = input.value.trim();
+            if (!original) return;
+            const corrigido = corrigirMotivo(original);
+            if (corrigido !== original) {
+                input.value = corrigido;
+                if (semAcento(corrigido) !== semAcento(original)) {
+                    hint.textContent = `Corrigido: "${original}" → "${corrigido}"`;
+                    hint.classList.remove('hidden');
+                }
+            }
         }
 
         function formatDecimalInput(input) {
@@ -889,7 +987,7 @@
             e.preventDefault();
             if (editingIndex === -1 && discardData.length >= 1) { showMessageModal('Limite Atingido', 'Permitido apenas 1 registro por relatório.', 'error'); return; }
             let finalReason = document.getElementById('discardReason').value;
-            if (finalReason === 'Outros') { finalReason = document.getElementById('customReason').value.trim(); }
+            if (finalReason === 'Outros') { aplicarCorretorMotivo(); finalReason = document.getElementById('customReason').value.trim(); }
             
             const now = new Date();
             const addedAt = `${now.toLocaleDateString('pt-BR')} às ${now.toLocaleTimeString('pt-BR')}`;
